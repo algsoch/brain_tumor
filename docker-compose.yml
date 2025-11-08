@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: brain-tumor-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./model:/model
+      - ./model_training_phase:/data
+      - ./image:/images
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MODEL_PATH=/model/final_brain_tumor_model_97.keras
+      - TRAINING_HISTORY_PATH=/data/training_history.csv
+      - TRAINING_HISTORY_2_PATH=/data/training_history_2.csv
+      - MODEL_PREDICTIONS_PATH=/data/model_predictions.csv
+      - TEST_IMAGES_PATH=/images/test_image
+    restart: unless-stopped
+    networks:
+      - brain-tumor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: brain-tumor-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - brain-tumor-network
+
+networks:
+  brain-tumor-network:
+    driver: bridge
+
+volumes:
+  model_data:
+  training_data:
+  test_images:

@@ -1,0 +1,26 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Trigger Render deployment
+        run: |
+          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      
+      - name: Deployment notification
+        run: |
+          echo "✅ Deployment triggered successfully!"
+          echo "Backend will be available at your Render URL"
+          echo "Frontend will be available at your Render static site URL"

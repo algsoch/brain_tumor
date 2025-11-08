@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        input[type="file"] {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧠 Prediction API Test</h1>
+    
+    <div>
+        <h3>Step 1: Select Image</h3>
+        <input type="file" id="fileInput" accept="image/*">
+    </div>
+    
+    <div>
+        <h3>Step 2: Run Prediction</h3>
+        <button onclick="testPrediction()">Test Prediction</button>
+    </div>
+    
+    <div id="result"></div>
+
+    <script>
+        async function testPrediction() {
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files || !fileInput.files[0]) {
+                resultDiv.innerHTML = '<div class="result error">Please select an image first!</div>';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            resultDiv.innerHTML = '<div class="result">⏳ Testing prediction...</div>';
+
+            try {
+                // Test 1: Check backend health
+                console.log('Test 1: Checking backend health...');
+                const healthResponse = await fetch('http://localhost:8000/health');
+                const health = await healthResponse.json();
+                console.log('Health check:', health);
+
+                // Test 2: Make prediction
+                console.log('Test 2: Making prediction...');
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch('http://localhost:8000/api/predict/', {
+                    method: 'POST',
+                    body: formData,
+                    mode: 'cors'
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const result = await response.json();
+                console.log('Prediction result:', result);
+
+                resultDiv.innerHTML = `
+                    <div class="result success">
+                        <h3>✅ Prediction Successful!</h3>
+                        <p><strong>Prediction:</strong> ${result.data.prediction}</p>
+                        <p><strong>Confidence:</strong> ${(result.data.confidence * 100).toFixed(2)}%</p>
+                        <p><strong>Filename:</strong> ${result.filename}</p>
+                        <h4>Full Response:</h4>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <h3>❌ Prediction Failed</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <h4>Debugging Info:</h4>
+                        <pre>${error.stack}</pre>
+                        
+                        <h4>Checklist:</h4>
+                        <ul>
+                            <li>Is backend running? Check: <a href="http://localhost:8000/health" target="_blank">http://localhost:8000/health</a></li>
+                            <li>Is CORS enabled? Check browser console</li>
+                            <li>Is the image file valid? (JPG, PNG)</li>
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

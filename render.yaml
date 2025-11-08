@@ -1,8 +1,9 @@
 services:
-  # Backend API Service
+  # Backend API Service (FREE TIER)
   - type: web
     name: brain-tumor-api
     env: python
+    plan: free  # FREE tier - $0/month (spins down after 15 min inactivity)
     region: oregon
     branch: main
     buildCommand: "cd backend && pip install --upgrade pip && pip install -r requirements.txt"

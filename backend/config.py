@@ -3,10 +3,10 @@ Configuration module for the Brain Tumor Detection API
 Loads environment variables and provides application settings
 """
 import os
-from typing import List
+from typing import List, Union
 from pathlib import Path
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
 
 
 class Settings(BaseSettings):
@@ -21,11 +21,20 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0", alias="HOST")
     port: int = Field(default=8000, alias="PORT")
     
-    # CORS
+    # CORS - accepts both string (comma-separated) or list
     allowed_origins: List[str] = Field(
         default=["http://localhost:3000", "http://localhost:5173"],
         alias="ALLOWED_ORIGINS"
     )
+    
+    @field_validator('allowed_origins', mode='before')
+    @classmethod
+    def parse_origins(cls, v):
+        """Parse ALLOWED_ORIGINS from string or list"""
+        if isinstance(v, str):
+            # Split by comma and strip whitespace
+            return [origin.strip() for origin in v.split(',') if origin.strip()]
+        return v
     
     # Model Configuration
     model_path: str = Field(

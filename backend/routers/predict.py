@@ -27,6 +27,13 @@ async def predict_image(file: UploadFile = File(...)):
         JSON response with prediction results
     """
     try:
+        # Check if model is loaded
+        if model_service.model is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Model is still loading. Please wait a moment and try again."
+            )
+        
         # Validate file extension
         file_ext = f".{file.filename.split('.')[-1].lower()}"
         if file_ext not in settings.allowed_extensions:

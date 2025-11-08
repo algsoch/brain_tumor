@@ -26,17 +26,28 @@ class ModelService:
         """Load the trained Keras model"""
         try:
             model_path = settings.get_absolute_path(settings.model_path)
-            logger.info(f"Loading model from: {model_path}")
+            logger.info(f"📂 Model path: {model_path}")
             
             if not model_path.exists():
                 raise FileNotFoundError(f"Model file not found: {model_path}")
             
-            self.model = keras.models.load_model(str(model_path))
-            logger.info("Model loaded successfully")
-            logger.info(f"Model input shape: {self.model.input_shape}")
+            # Log file size
+            file_size_mb = model_path.stat().st_size / (1024 * 1024)
+            logger.info(f"📦 Model file size: {file_size_mb:.2f} MB")
+            logger.info(f"⏳ Loading model... (this may take 30-60 seconds)")
+            
+            # Load model with compile=False for faster loading
+            import time
+            start_time = time.time()
+            self.model = keras.models.load_model(str(model_path), compile=False)
+            load_time = time.time() - start_time
+            
+            logger.info(f"✅ Model loaded successfully in {load_time:.2f} seconds")
+            logger.info(f"📊 Model input shape: {self.model.input_shape}")
+            logger.info(f"🎯 Model output shape: {self.model.output_shape}")
             
         except Exception as e:
-            logger.error(f"Error loading model: {str(e)}")
+            logger.error(f"❌ Error loading model: {str(e)}")
             raise
     
     def preprocess_image(self, image: Image.Image) -> np.ndarray:
@@ -81,7 +92,8 @@ class ModelService:
         """
         try:
             if self.model is None:
-                self.load_model()
+                # Don't try to load synchronously, raise error instead
+                raise RuntimeError("Model is still loading. Please try again in a moment.")
             
             # Preprocess image
             processed_image = self.preprocess_image(image)

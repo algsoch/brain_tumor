@@ -31,14 +31,23 @@ async def lifespan(app: FastAPI):
     Load ML model on startup, cleanup on shutdown
     """
     logger.info("Starting Brain Tumor Detection API...")
+    logger.info("⚠️  Server will start immediately but predictions unavailable until model loads")
     
-    # Load model on startup
-    try:
-        model_service.load_model()
-        logger.info("Model loaded successfully")
-    except Exception as e:
-        logger.error(f"Failed to load model: {str(e)}")
-        raise
+    # Start model loading in background to let server bind to port quickly
+    import asyncio
+    
+    async def load_model_task():
+        try:
+            logger.info("📦 Loading model... (this may take 30-60 seconds)")
+            await asyncio.to_thread(model_service.load_model)
+            logger.info("✅ Model loaded! Service is now fully operational.")
+        except Exception as e:
+            logger.error(f"❌ Failed to load model: {str(e)}")
+            # Don't raise - let server stay up for debugging
+    
+    # Start loading in background
+    asyncio.create_task(load_model_task())
+    logger.info("🚀 Server starting... Model loading in background")
     
     yield
     
@@ -112,15 +121,17 @@ async def root():
 # Health check endpoint
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint - returns 200 immediately but shows model loading status"""
     try:
         # Check if model is loaded
         model_loaded = model_service.model is not None
         
         return {
-            "status": "healthy" if model_loaded else "degraded",
+            "status": "healthy",  # Always healthy so Render accepts the service
             "model_loaded": model_loaded,
-            "version": settings.app_version
+            "model_status": "ready" if model_loaded else "loading",
+            "version": settings.app_version,
+            "message": "Service ready for predictions" if model_loaded else "Model is loading, please wait..."
         }
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")

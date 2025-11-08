@@ -22,19 +22,19 @@ services:
       - key: ALLOWED_ORIGINS
         sync: false
       - key: MODEL_PATH
-        value: ./model/final_brain_tumor_model_97.keras
+        value: ../model/final_brain_tumor_model_97.keras
       - key: MODEL_INPUT_SIZE
         value: "224"
       - key: CONFIDENCE_THRESHOLD
         value: "0.5"
       - key: TRAINING_HISTORY_PATH
-        value: ./model_training_phase/training_history.csv
+        value: ../model_training_phase/training_history.csv
       - key: TRAINING_HISTORY_2_PATH
-        value: ./model_training_phase/training_history_2.csv
+        value: ../model_training_phase/training_history_2.csv
       - key: MODEL_PREDICTIONS_PATH
-        value: ./model_training_phase/model_predictions.csv
+        value: ../model_training_phase/model_predictions.csv
       - key: TEST_IMAGES_PATH
-        value: ./image/test_image
+        value: ../image/test_image
       - key: MAX_UPLOAD_SIZE
         value: "10485760"
       - key: LOG_LEVEL

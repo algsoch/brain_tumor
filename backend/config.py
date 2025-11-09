@@ -69,7 +69,7 @@ class Settings(BaseSettings):
         alias="MODEL_PREDICTIONS_PATH"
     )
     test_images_path: str = Field(
-        default="../image/test_image",
+        default="../image",
         alias="TEST_IMAGES_PATH"
     )
     

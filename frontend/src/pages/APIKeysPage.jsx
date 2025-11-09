@@ -853,7 +853,7 @@ module.exports = { predictBrainTumor, predictMultipleScans };`
               variant="contained"
               size="large"
               startIcon={<DescriptionIcon />}
-              onClick={() => window.open('https://documenter.getpostman.com/view/your-api-docs', '_blank')}
+              onClick={() => window.open(`${API_BASE_URL}/docs`, '_blank')}
               sx={{
                 background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
                 px: 4,

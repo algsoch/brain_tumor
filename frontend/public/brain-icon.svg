@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="brainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Brain outline -->
+  <path d="M 32 8 
+           C 24 8, 18 12, 16 18
+           C 14 16, 11 16, 9 18
+           C 7 20, 6 23, 6 26
+           C 6 29, 7 32, 9 34
+           C 8 36, 8 38, 9 40
+           C 10 42, 12 44, 14 45
+           C 14 47, 15 49, 17 51
+           C 19 53, 22 54, 25 54
+           C 27 54, 29 54, 31 53
+           C 33 54, 35 54, 37 54
+           C 40 54, 43 53, 45 51
+           C 47 49, 48 47, 48 45
+           C 50 44, 52 42, 53 40
+           C 54 38, 54 36, 53 34
+           C 55 32, 56 29, 56 26
+           C 56 23, 55 20, 53 18
+           C 51 16, 48 16, 46 18
+           C 44 12, 38 8, 32 8 Z" 
+        fill="url(#brainGradient)" 
+        stroke="#4a5568" 
+        stroke-width="1.5"/>
+  
+  <!-- Brain folds/gyri (left hemisphere) -->
+  <path d="M 15 22 Q 18 24, 20 26" fill="none" stroke="#4a5568" stroke-width="1.2" opacity="0.7"/>
+  <path d="M 14 28 Q 17 30, 19 32" fill="none" stroke="#4a5568" stroke-width="1.2" opacity="0.7"/>
+  <path d="M 15 34 Q 18 36, 21 38" fill="none" stroke="#4a5568" stroke-width="1.2" opacity="0.7"/>
+  <path d="M 18 40 Q 21 42, 24 44" fill="none" stroke="#4a5568" stroke-width="1.2" opacity="0.7"/>
+  <path d="M 12 24 Q 14 26, 16 28" fill="none" stroke="#4a5568" stroke-width="1" opacity="0.6"/>
+  <path d="M 11 30 Q 13 32, 15 34" fill="none" stroke="#4a5568" stroke-width="1" opacity="0.6"/>
+  
+  <!-- Brain folds/gyri (right hemisphere) -->
+  <path d="M 47 22 Q 44 24, 42 26" fill="none" stroke="#4a5568" stroke-width="1.2" opacity="0.7"/>
+  <path d="M 48 28 Q 45 30, 43 32" fill="none" stroke="#4a5568" stroke-width="1.2" opacity="0.7"/>
+  <path d="M 47 34 Q 44 36, 41 38" fill="none" stroke="#4a5568" stroke-width="1.2" opacity="0.7"/>
+  <path d="M 44 40 Q 41 42, 38 44" fill="none" stroke="#4a5568" stroke-width="1.2" opacity="0.7"/>
+  <path d="M 50 24 Q 48 26, 46 28" fill="none" stroke="#4a5568" stroke-width="1" opacity="0.6"/>
+  <path d="M 51 30 Q 49 32, 47 34" fill="none" stroke="#4a5568" stroke-width="1" opacity="0.6"/>
+  
+  <!-- Central fissure -->
+  <path d="M 32 12 Q 31 20, 30 28 Q 29 36, 30 44 Q 31 49, 32 52" 
+        fill="none" 
+        stroke="#4a5568" 
+        stroke-width="1.5" 
+        opacity="0.8"/>
+  
+  <!-- Tumor indicator (red dot with glow) -->
+  <circle cx="38" cy="28" r="4" fill="#ff4444" opacity="0.3"/>
+  <circle cx="38" cy="28" r="2.5" fill="#ff0000">
+    <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Medical cross in corner (subtle) -->
+  <g opacity="0.4">
+    <rect x="52" y="8" width="1.5" height="6" fill="#ffffff" rx="0.5"/>
+    <rect x="49.75" y="9.25" width="6" height="1.5" fill="#ffffff" rx="0.5"/>
+  </g>
+</svg>

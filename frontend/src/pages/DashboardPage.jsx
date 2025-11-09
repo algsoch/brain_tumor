@@ -12,7 +12,7 @@ import {
 } from '@mui/material'
 import DownloadIcon from '@mui/icons-material/Download'
 import { metricsAPI } from '../services/api'
-import '../components/Charts/TrainingHistoryChart'
+import TrainingHistoryChart from '../components/Charts/TrainingHistoryChart'
 import LossChart from '../components/Charts/LossChart'
 import MetricsChart from '../components/Charts/MetricsChart'
 import AUCChart from '../components/Charts/AUCChart'

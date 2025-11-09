@@ -3,6 +3,7 @@ Brain Tumor Detection API - Main Application
 Production-ready FastAPI application for brain tumor classification
 """
 import logging
+import re
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +23,29 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def is_origin_allowed(origin: str, allowed_origins: list) -> bool:
+    """
+    Check if origin is allowed, supporting wildcard patterns
+    Supports:
+    - Exact matches: "http://localhost:3000"
+    - Wildcard patterns: "https://*.devtunnels.ms"
+    """
+    for allowed in allowed_origins:
+        # Exact match
+        if origin == allowed:
+            return True
+        
+        # Wildcard pattern match
+        if '*' in allowed:
+            # Convert wildcard pattern to regex
+            # Replace * with regex pattern and escape special chars
+            pattern = allowed.replace('.', r'\.').replace('*', r'[a-zA-Z0-9\-]+')
+            if re.match(f'^{pattern}$', origin):
+                return True
+    
+    return False
 
 
 @asynccontextmanager
@@ -65,16 +89,55 @@ app = FastAPI(
     redoc_url="/api/redoc"
 )
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,
-)
+# Configure CORS with custom origin checker
+# Convert origins list for CORSMiddleware
+cors_origins = []
+for origin in settings.allowed_origins:
+    if '*' not in origin:
+        cors_origins.append(origin)
+
+# If we have wildcard patterns, we need to use allow_origin_regex
+has_wildcards = any('*' in origin for origin in settings.allowed_origins)
+
+if has_wildcards:
+    # Build regex pattern for all origins
+    regex_patterns = []
+    for origin in settings.allowed_origins:
+        if '*' in origin:
+            # Convert wildcard to regex
+            pattern = origin.replace('.', r'\.').replace('*', r'[a-zA-Z0-9\-]+')
+            regex_patterns.append(pattern)
+        else:
+            # Escape exact origin for regex
+            pattern = re.escape(origin)
+            regex_patterns.append(pattern)
+    
+    # Combine all patterns with OR
+    combined_pattern = '|'.join(f'({p})' for p in regex_patterns)
+    
+    logger.info(f"CORS configured with regex pattern for origins including dev tunnels")
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=combined_pattern,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+        max_age=3600,
+    )
+else:
+    logger.info(f"CORS configured with exact origins: {settings.allowed_origins}")
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+        max_age=3600,
+    )
 
 
 # Exception handler

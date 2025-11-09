@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     
     # CORS - accepts both string (comma-separated) or list
     allowed_origins: Union[str, List[str]] = Field(
-        default=["http://localhost:3000", "http://localhost:5173"],
+        default=["http://localhost:3000", "http://localhost:5173", "https://*.devtunnels.ms"],
         alias="ALLOWED_ORIGINS"
     )
     
@@ -33,7 +33,7 @@ class Settings(BaseSettings):
         """Parse ALLOWED_ORIGINS from string or list"""
         # Handle None or empty string
         if not v or v == "":
-            return ["http://localhost:3000", "http://localhost:5173"]
+            return ["http://localhost:3000", "http://localhost:5173", "https://*.devtunnels.ms"]
         
         # If already a list, return it
         if isinstance(v, list):
@@ -43,7 +43,7 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             # Split by comma and strip whitespace
             origins = [origin.strip() for origin in v.split(',') if origin.strip()]
-            return origins if origins else ["http://localhost:3000", "http://localhost:5173"]
+            return origins if origins else ["http://localhost:3000", "http://localhost:5173", "https://*.devtunnels.ms"]
         
         return v
     

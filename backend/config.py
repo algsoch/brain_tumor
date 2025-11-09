@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, alias="PORT")
     
     # CORS - accepts both string (comma-separated) or list
-    allowed_origins: List[str] = Field(
+    allowed_origins: Union[str, List[str]] = Field(
         default=["http://localhost:3000", "http://localhost:5173"],
         alias="ALLOWED_ORIGINS"
     )
@@ -31,9 +31,20 @@ class Settings(BaseSettings):
     @classmethod
     def parse_origins(cls, v):
         """Parse ALLOWED_ORIGINS from string or list"""
+        # Handle None or empty string
+        if not v or v == "":
+            return ["http://localhost:3000", "http://localhost:5173"]
+        
+        # If already a list, return it
+        if isinstance(v, list):
+            return v
+        
+        # If string, split by comma
         if isinstance(v, str):
             # Split by comma and strip whitespace
-            return [origin.strip() for origin in v.split(',') if origin.strip()]
+            origins = [origin.strip() for origin in v.split(',') if origin.strip()]
+            return origins if origins else ["http://localhost:3000", "http://localhost:5173"]
+        
         return v
     
     # Model Configuration

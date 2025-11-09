@@ -12,6 +12,7 @@ import {
   Fade,
   Zoom,
   Slide,
+  Alert,
 } from '@mui/material'
 import {
   PlayArrow,
@@ -21,8 +22,13 @@ import {
   Memory,
   Speed,
   AccountTree,
+  CheckCircle,
+  Cancel,
+  Science as ScienceIcon,
+  Radar as RadarIcon,
+  Analytics as AnalyticsIcon,
 } from '@mui/icons-material'
-import { galleryAPI, predictionAPI, precomputedAPI } from '../../services/api'
+import { galleryAPI, predictionAPI } from '../../services/api'
 
 const AutoDemo = () => {
   const [isPlaying, setIsPlaying] = useState(true)
@@ -33,14 +39,25 @@ const AutoDemo = () => {
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [scanPosition, setScanPosition] = useState(0)
-  const [precomputedPredictions, setPrecomputedPredictions] = useState({}) // Store predictions by filename
+  const [scanningStage, setScanningStage] = useState(0)
+  const [error, setError] = useState(null)
+
+  // AI Processing stages with durations
+  const scanningStages = [
+    { label: 'Initializing Neural Network...', icon: <Memory />, duration: 600 },
+    { label: 'Preprocessing MRI Image...', icon: <ScienceIcon />, duration: 800 },
+    { label: 'Extracting Features...', icon: <RadarIcon />, duration: 1000 },
+    { label: 'Analyzing Brain Structure...', icon: <AnalyticsIcon />, duration: 1200 },
+    { label: 'Running Deep Learning Model...', icon: <Memory />, duration: 1400 },
+    { label: 'Computing Confidence Scores...', icon: <Speed />, duration: 800 },
+  ]
 
   useEffect(() => {
     loadImages()
   }, [])
 
   useEffect(() => {
-    if (allImages.length > 0 && isPlaying && !isProcessing) {
+    if (isPlaying && !isProcessing && allImages.length > 0) {
       const timer = setTimeout(() => {
         processImage()
       }, 3500) // Wait 3.5s before next image
@@ -49,55 +66,50 @@ const AutoDemo = () => {
     }
   }, [currentIndex, isPlaying, allImages, isProcessing])
 
+  // Handle scanning stage progression
+  useEffect(() => {
+    if (isProcessing && scanningStage < scanningStages.length) {
+      const timer = setTimeout(() => {
+        setScanningStage((prev) => prev + 1)
+      }, scanningStages[scanningStage].duration)
+      return () => clearTimeout(timer)
+    }
+  }, [isProcessing, scanningStage])
+
+  // Handle progress bar animation synced with stages
+  useEffect(() => {
+    if (isProcessing) {
+      const totalDuration = scanningStages.reduce((sum, stage) => sum + stage.duration, 0)
+      const incrementInterval = 50
+      const incrementPerStep = 100 / (totalDuration / incrementInterval)
+      
+      const progressTimer = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 100) return 100
+          return Math.min(prev + incrementPerStep, 100)
+        })
+        setScanPosition((prev) => Math.min(prev + incrementPerStep, 100))
+      }, incrementInterval)
+      
+      return () => clearInterval(progressTimer)
+    } else {
+      setProgress(0)
+      setScanPosition(0)
+    }
+  }, [isProcessing])
+
   const loadImages = async () => {
     try {
-      // Load precomputed predictions first (fast!)
-      console.log('Loading precomputed predictions from CSV...')
-      const predResponse = await precomputedAPI.getPredictions()
-      
-      if (predResponse.success) {
-        const allPredictions = predResponse.data.predictions || []
-        
-        // Store predictions in a map for quick lookup
-        const predMap = {}
-        allPredictions.forEach(pred => {
-          predMap[pred.filename] = pred
-        })
-        setPrecomputedPredictions(predMap)
-        
-        console.log(`✅ Loaded ${allPredictions.length} precomputed predictions`)
-        
-        // Use the predictions as images (they already have all needed data)
-        const imagesWithPredictions = allPredictions.slice(0, 20).map(pred => ({
-          filename: pred.filename,
-          path: pred.filename,
-          label: pred.label,
-          url: `/api/gallery/image/${pred.filename}`,
-          // Attach prediction data
-          prediction: pred.prediction,
-          confidence: pred.confidence,
-          isCorrect: pred.isCorrect
-        }))
-        
-        setAllImages(imagesWithPredictions)
-        if (imagesWithPredictions.length > 0) {
-          setCurrentImage(imagesWithPredictions[0])
+      const response = await galleryAPI.getImages({ page: 1, page_size: 20 })
+      if (response.success && response.data?.images) {
+        setAllImages(response.data.images)
+        if (response.data.images.length > 0) {
+          setCurrentImage(response.data.images[0])
         }
       }
     } catch (error) {
       console.error('Failed to load images:', error)
-      // Fallback to gallery API if precomputed fails
-      try {
-        const response = await galleryAPI.getImages({ page: 1, page_size: 20 })
-        if (response.success && response.data?.images) {
-          setAllImages(response.data.images)
-          if (response.data.images.length > 0) {
-            setCurrentImage(response.data.images[0])
-          }
-        }
-      } catch (fallbackError) {
-        console.error('Fallback also failed:', fallbackError)
-      }
+      setError('Failed to load demo images')
     }
   }
 
@@ -110,52 +122,55 @@ const AutoDemo = () => {
     setPrediction(null)
     setProgress(0)
     setScanPosition(0)
+    setScanningStage(0)
+    setError(null)
 
-    // Simulate scanning animation
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise(resolve => setTimeout(resolve, 100))
-      setProgress(i)
-      setScanPosition(i)
-    }
-
-    // Use precomputed prediction (no API call needed!)
     try {
-      await new Promise(resolve => setTimeout(resolve, 500)) // Brief pause for effect
+      // Wait for animation to complete FIRST before calling API
+      const totalDuration = scanningStages.reduce((sum, stage) => sum + stage.duration, 0)
       
-      // Check if we have precomputed prediction for this image
-      if (image.prediction && image.confidence !== undefined) {
-        // Image already has prediction data attached
-        console.log('Using attached prediction for:', image.filename)
-        setPrediction({
-          prediction: image.prediction,
-          confidence: image.confidence,
-          class_name: image.prediction
-        })
-      } else if (precomputedPredictions[image.filename]) {
-        // Look up from precomputed map
-        const pred = precomputedPredictions[image.filename]
-        console.log('Using precomputed prediction for:', image.filename)
-        setPrediction({
-          prediction: pred.prediction,
-          confidence: pred.confidence,
-          class_name: pred.prediction
-        })
-      } else {
-        // Fallback: estimate from filename
-        console.log('Using filename-based prediction for:', image.filename)
-        setPrediction({
-          prediction: image.label || (image.filename.includes('cancer_') ? 'tumor' : 'healthy'),
-          confidence: 95.0,
-          class_name: image.label || (image.filename.includes('cancer_') ? 'tumor' : 'healthy')
-        })
+      console.log('🎬 Starting animation sequence...')
+      await new Promise(resolve => setTimeout(resolve, totalDuration))
+      
+      // NOW fetch the actual image blob from gallery
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+      const imageUrl = `${API_BASE_URL}/api/gallery/image/${image.path}`
+      
+      console.log('🔄 Fetching image:', imageUrl)
+      const imageResponse = await fetch(imageUrl)
+      
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to fetch image: ${imageResponse.status}`)
       }
+      
+      const blob = await imageResponse.blob()
+      const file = new File([blob], image.filename, { type: blob.type || 'image/jpeg' })
+      
+      console.log('📤 Sending to AI model:', file.name)
+      
+      // Make REAL API prediction call
+      const result = await predictionAPI.predictImage(file)
+      
+      console.log('✅ Prediction result:', result.data)
+      
+      setPrediction({
+        ...result.data,
+        actualLabel: image.label,
+        isCorrect: result.data.prediction.toLowerCase() === image.label.toLowerCase()
+      })
+      
     } catch (error) {
-      console.error('Prediction error:', error)
-      // Set a fallback prediction based on filename
+      console.error('❌ Prediction error:', error)
+      setError(error.response?.data?.detail || error.message || 'Prediction failed')
+      
+      // Fallback prediction based on filename
       setPrediction({
         prediction: image.label || (image.filename.includes('cancer_') ? 'tumor' : 'healthy'),
-        confidence: 95.0,
-        class_name: image.label || (image.filename.includes('cancer_') ? 'tumor' : 'healthy')
+        confidence: 0,
+        class_name: image.label || (image.filename.includes('cancer_') ? 'tumor' : 'healthy'),
+        actualLabel: image.label,
+        isCorrect: null,
+        error: true
       })
     } finally {
       setProgress(100)
@@ -164,7 +179,7 @@ const AutoDemo = () => {
         setIsProcessing(false)
         // Move to next image
         setCurrentIndex((prev) => (prev + 1) % allImages.length)
-      }, 1500) // Show result for 1.5s before next
+      }, 2500) // Show result for 2.5s before next
     }
   }
 
@@ -200,12 +215,58 @@ const AutoDemo = () => {
           background: 'radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3), transparent 50%), radial-gradient(circle at 80% 80%, rgba(138, 43, 226, 0.3), transparent 50%)',
           animation: 'pulse 8s ease-in-out infinite',
         },
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          top: '-50%',
+          left: '-50%',
+          width: '200%',
+          height: '200%',
+          background: 'radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px)',
+          backgroundSize: '50px 50px',
+          animation: 'moveGrid 20s linear infinite',
+          opacity: 0.3,
+        },
         '@keyframes pulse': {
           '0%, 100%': { opacity: 0.5 },
           '50%': { opacity: 0.8 },
         },
+        '@keyframes moveGrid': {
+          '0%': { transform: 'translate(0, 0)' },
+          '100%': { transform: 'translate(50px, 50px)' },
+        },
       }}
     >
+      {/* Floating Particles */}
+      {[...Array(15)].map((_, i) => (
+        <Box
+          key={i}
+          sx={{
+            position: 'absolute',
+            width: `${Math.random() * 10 + 5}px`,
+            height: `${Math.random() * 10 + 5}px`,
+            borderRadius: '50%',
+            background: 'rgba(255, 255, 255, 0.4)',
+            top: `${Math.random() * 100}%`,
+            left: `${Math.random() * 100}%`,
+            animation: `float${i % 3} ${Math.random() * 10 + 10}s ease-in-out infinite`,
+            animationDelay: `${Math.random() * 5}s`,
+            '@keyframes float0': {
+              '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+              '50%': { transform: 'translate(30px, -30px) scale(1.2)' },
+            },
+            '@keyframes float1': {
+              '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+              '50%': { transform: 'translate(-40px, 40px) scale(0.8)' },
+            },
+            '@keyframes float2': {
+              '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+              '50%': { transform: 'translate(25px, 35px) scale(1.1)' },
+            },
+          }}
+        />
+      ))}
+
       <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
         <Fade in timeout={1000}>
           <Box>
@@ -216,28 +277,74 @@ const AutoDemo = () => {
                 color: 'white',
                 fontWeight: 700,
                 mb: 1,
-                textShadow: '0 2px 10px rgba(0,0,0,0.3)',
+                textShadow: '0 4px 20px rgba(0,0,0,0.4), 0 0 40px rgba(255,255,255,0.2)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 2,
                 flexWrap: 'wrap',
+                animation: 'titleGlow 3s ease-in-out infinite',
+                '@keyframes titleGlow': {
+                  '0%, 100%': { textShadow: '0 4px 20px rgba(0,0,0,0.4), 0 0 40px rgba(255,255,255,0.2)' },
+                  '50%': { textShadow: '0 4px 20px rgba(0,0,0,0.6), 0 0 60px rgba(255,255,255,0.4)' },
+                },
               }}
             >
-              🤖 Live AI Detection Demo
+              <Box
+                component="span"
+                sx={{
+                  animation: 'robotPulse 2s ease-in-out infinite',
+                  display: 'inline-block',
+                  '@keyframes robotPulse': {
+                    '0%, 100%': { transform: 'scale(1) rotate(0deg)' },
+                    '50%': { transform: 'scale(1.2) rotate(10deg)' },
+                  },
+                }}
+              >
+                🤖
+              </Box>
+              🔬 Live Demo - Real-Time Prediction
             </Typography>
             <Typography
               variant="h6"
               align="center"
               sx={{
-                color: 'rgba(255,255,255,0.9)',
-                mb: 2,
+                color: 'rgba(255,255,255,0.95)',
+                fontWeight: 400,
+                mb: 4,
+                textShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                animation: 'fadeInUp 1s ease-out',
+                '@keyframes fadeInUp': {
+                  '0%': { opacity: 0, transform: 'translateY(20px)' },
+                  '100%': { opacity: 1, transform: 'translateY(0)' },
+                },
               }}
             >
-              Watch our AI model analyze brain scans in real-time
+              Watch our AI model analyze brain scans in real-time with advanced deep learning
             </Typography>
             
-            {/* Model Info Banner */}
+            {/* Error Alert */}
+            {error && (
+              <Alert 
+                severity="error" 
+                sx={{ 
+                  mb: 3,
+                  maxWidth: 800,
+                  mx: 'auto',
+                  boxShadow: 3,
+                  animation: 'slideDown 0.5s ease-out',
+                  '@keyframes slideDown': {
+                    '0%': { opacity: 0, transform: 'translateY(-20px)' },
+                    '100%': { opacity: 1, transform: 'translateY(0)' },
+                  },
+                }}
+                onClose={() => setError(null)}
+              >
+                <strong>Prediction Error:</strong> {error}
+              </Alert>
+            )}
+            
+            {/* Model Info Banner with Enhanced Animations */}
             <Box
               sx={{
                 display: 'flex',
@@ -248,42 +355,73 @@ const AutoDemo = () => {
               }}
             >
               <Chip
-                icon={<Memory />}
+                icon={<Memory sx={{ animation: 'spin 3s linear infinite', '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } } }} />}
                 label="CNN Deep Learning Model"
                 sx={{
-                  bgcolor: 'rgba(255,255,255,0.2)',
+                  bgcolor: 'rgba(255,255,255,0.25)',
                   color: 'white',
                   backdropFilter: 'blur(10px)',
                   fontWeight: 600,
                   fontSize: '0.9rem',
                   py: 2.5,
                   px: 1,
+                  border: '2px solid rgba(255,255,255,0.3)',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+                  animation: 'chipFloat 3s ease-in-out infinite',
+                  animationDelay: '0s',
+                  '@keyframes chipFloat': {
+                    '0%, 100%': { transform: 'translateY(0px)' },
+                    '50%': { transform: 'translateY(-8px)' },
+                  },
+                  '&:hover': {
+                    transform: 'scale(1.1)',
+                    bgcolor: 'rgba(255,255,255,0.35)',
+                  },
+                  transition: 'all 0.3s ease',
                 }}
               />
               <Chip
-                icon={<Speed />}
+                icon={<Speed sx={{ animation: 'pulse 2s ease-in-out infinite', '@keyframes pulse': { '0%, 100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.2)' } } }} />}
                 label="97% Accuracy"
                 sx={{
-                  bgcolor: 'rgba(76,175,80,0.3)',
+                  bgcolor: 'rgba(76,175,80,0.4)',
                   color: 'white',
                   backdropFilter: 'blur(10px)',
                   fontWeight: 600,
                   fontSize: '0.9rem',
                   py: 2.5,
                   px: 1,
+                  border: '2px solid rgba(76,175,80,0.5)',
+                  boxShadow: '0 4px 15px rgba(76,175,80,0.3)',
+                  animation: 'chipFloat 3s ease-in-out infinite',
+                  animationDelay: '0.5s',
+                  '&:hover': {
+                    transform: 'scale(1.1)',
+                    bgcolor: 'rgba(76,175,80,0.6)',
+                  },
+                  transition: 'all 0.3s ease',
                 }}
               />
               <Chip
-                icon={<AccountTree />}
+                icon={<AccountTree sx={{ animation: 'wiggle 2s ease-in-out infinite', '@keyframes wiggle': { '0%, 100%': { transform: 'rotate(0deg)' }, '25%': { transform: 'rotate(-10deg)' }, '75%': { transform: 'rotate(10deg)' } } }} />}
                 label="Multi-Layer Neural Network"
                 sx={{
-                  bgcolor: 'rgba(255,255,255,0.2)',
+                  bgcolor: 'rgba(255,255,255,0.25)',
                   color: 'white',
                   backdropFilter: 'blur(10px)',
                   fontWeight: 600,
                   fontSize: '0.9rem',
                   py: 2.5,
                   px: 1,
+                  border: '2px solid rgba(255,255,255,0.3)',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+                  animation: 'chipFloat 3s ease-in-out infinite',
+                  animationDelay: '1s',
+                  '&:hover': {
+                    transform: 'scale(1.1)',
+                    bgcolor: 'rgba(255,255,255,0.35)',
+                  },
+                  transition: 'all 0.3s ease',
                 }}
               />
             </Box>
@@ -297,7 +435,19 @@ const AutoDemo = () => {
               borderRadius: 4,
               overflow: 'hidden',
               bgcolor: 'rgba(255,255,255,0.98)',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3), 0 0 80px rgba(102, 126, 234, 0.15)',
+              border: '2px solid rgba(255,255,255,0.5)',
+              animation: 'paperFloat 6s ease-in-out infinite',
+              '@keyframes paperFloat': {
+                '0%, 100%': { 
+                  transform: 'translateY(0px)',
+                  boxShadow: '0 20px 60px rgba(0,0,0,0.3), 0 0 80px rgba(102, 126, 234, 0.15)'
+                },
+                '50%': { 
+                  transform: 'translateY(-10px)',
+                  boxShadow: '0 30px 80px rgba(0,0,0,0.4), 0 0 120px rgba(102, 126, 234, 0.3)'
+                },
+              },
             }}
           >
             <Grid container spacing={0}>
@@ -455,17 +605,17 @@ const AutoDemo = () => {
                 </Box>
               </Grid>
 
-              {/* Center: Processing Status */}
+              {/* Center: Enhanced Processing Status */}
               <Grid item xs={12} md={4}>
                 <Box
                   sx={{
-                    height: { xs: 'auto', md: 600 },
+                    minHeight: { xs: 500, md: 600 },
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    p: 4,
-                    bgcolor: '#f5f5f5',
+                    p: { xs: 3, md: 4 },
+                    background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
                     position: 'relative',
                     overflow: 'hidden',
                     '&::before': {
@@ -475,196 +625,596 @@ const AutoDemo = () => {
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      background: 'radial-gradient(circle at 50% 50%, rgba(102, 126, 234, 0.05), transparent 70%)',
+                      background: 'radial-gradient(circle at 50% 50%, rgba(102, 126, 234, 0.1), transparent 70%)',
+                      animation: 'bgPulse 4s ease-in-out infinite',
+                    },
+                    '@keyframes bgPulse': {
+                      '0%, 100%': { opacity: 0.5 },
+                      '50%': { opacity: 1 },
                     },
                   }}
                 >
                   {isProcessing ? (
                     <Fade in timeout={500}>
-                      <Box sx={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-                        <Box sx={{ position: 'relative', display: 'inline-block', mb: 3 }}>
+                      <Box sx={{ 
+                        textAlign: 'center', 
+                        position: 'relative', 
+                        zIndex: 1,
+                        width: '100%',
+                        maxWidth: 400,
+                      }}>
+                        {/* Circular Progress with Animation */}
+                        <Box sx={{ 
+                          position: 'relative', 
+                          display: 'inline-block', 
+                          mb: 3,
+                          animation: 'progressFloat 3s ease-in-out infinite',
+                          '@keyframes progressFloat': {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                          },
+                        }}>
+                          {/* Background circle */}
+                          <CircularProgress
+                            variant="determinate"
+                            value={100}
+                            size={160}
+                            thickness={4}
+                            sx={{
+                              color: 'rgba(102, 126, 234, 0.1)',
+                              position: 'absolute',
+                            }}
+                          />
+                          {/* Animated progress circle */}
                           <CircularProgress
                             variant="determinate"
                             value={progress}
-                            size={140}
+                            size={160}
                             thickness={5}
                             sx={{
                               color: '#667eea',
-                              filter: 'drop-shadow(0 0 10px rgba(102, 126, 234, 0.5))',
+                              filter: 'drop-shadow(0 0 20px rgba(102, 126, 234, 0.6))',
+                              '& .MuiCircularProgress-circle': {
+                                strokeLinecap: 'round',
+                                transition: 'stroke-dashoffset 0.3s ease',
+                              },
                             }}
                           />
+                          {/* Center content */}
                           <Box
                             sx={{
                               position: 'absolute',
                               top: '50%',
                               left: '50%',
                               transform: 'translate(-50%, -50%)',
+                              textAlign: 'center',
                             }}
                           >
-                            <Typography variant="h4" fontWeight={700} color="primary">
+                            <Typography 
+                              variant="h3" 
+                              fontWeight={900} 
+                              sx={{
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text',
+                                animation: 'numberPulse 1s ease-in-out infinite',
+                                '@keyframes numberPulse': {
+                                  '0%, 100%': { transform: 'scale(1)' },
+                                  '50%': { transform: 'scale(1.1)' },
+                                },
+                              }}
+                            >
                               {Math.round(progress)}%
+                            </Typography>
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                color: '#667eea',
+                                fontWeight: 600,
+                                letterSpacing: 1,
+                              }}
+                            >
+                              ANALYZING
                             </Typography>
                           </Box>
                         </Box>
-                        <Typography variant="h5" gutterBottom fontWeight={700} color="primary">
-                          🧠 Processing...
+
+                        {/* Title with animation */}
+                        <Typography 
+                          variant="h5" 
+                          gutterBottom 
+                          fontWeight={700} 
+                          sx={{
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                            mb: 1,
+                            animation: 'titleShine 3s ease-in-out infinite',
+                            '@keyframes titleShine': {
+                              '0%, 100%': { opacity: 0.8 },
+                              '50%': { opacity: 1 },
+                            },
+                          }}
+                        >
+                          🧠 AI Processing
                         </Typography>
-                        <Typography variant="body1" color="text.secondary" sx={{ mb: 3, fontWeight: 500 }}>
-                          Analyzing brain scan patterns with deep learning
+                        
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary" 
+                          sx={{ 
+                            mb: 3, 
+                            fontWeight: 500,
+                            fontSize: '0.9rem',
+                            px: 2,
+                          }}
+                        >
+                          Deep learning neural network analyzing brain patterns
                         </Typography>
 
-                        <Box sx={{ width: '100%', maxWidth: 320 }}>
+                        {/* Enhanced Linear Progress Bar */}
+                        <Box sx={{ width: '100%', mb: 4, px: 2 }}>
                           <LinearProgress
                             variant="determinate"
                             value={progress}
                             sx={{
-                              height: 12,
-                              borderRadius: 6,
-                              bgcolor: '#e0e0e0',
-                              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)',
+                              height: 16,
+                              borderRadius: 8,
+                              bgcolor: 'rgba(224, 224, 224, 0.5)',
+                              boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.1)',
+                              border: '2px solid rgba(102, 126, 234, 0.2)',
                               '& .MuiLinearProgress-bar': {
-                                bgcolor: '#667eea',
                                 borderRadius: 6,
-                                background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
-                                boxShadow: '0 0 10px rgba(102, 126, 234, 0.5)',
+                                background: 'linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%)',
+                                backgroundSize: '200% 100%',
+                                boxShadow: '0 0 20px rgba(102, 126, 234, 0.6), inset 0 1px 2px rgba(255,255,255,0.3)',
+                                animation: 'progressShine 2s linear infinite',
+                              },
+                              '@keyframes progressShine': {
+                                '0%': { backgroundPosition: '200% 0' },
+                                '100%': { backgroundPosition: '0 0' },
                               },
                             }}
                           />
+                          {/* Progress percentage below bar */}
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5, px: 0.5 }}>
+                            <Typography variant="caption" sx={{ color: '#667eea', fontWeight: 700 }}>
+                              0%
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#667eea', fontWeight: 700 }}>
+                              {Math.round(progress)}%
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#667eea', fontWeight: 700 }}>
+                              100%
+                            </Typography>
+                          </Box>
                         </Box>
 
-                        {/* Enhanced Steps */}
-                        <Box sx={{ mt: 5, width: '100%', maxWidth: 340 }}>
-                          {[
-                            { label: 'Image Loaded', icon: '📥', complete: progress > 0 },
-                            { label: 'Preprocessing', icon: '⚙️', complete: progress > 25 },
-                            { label: 'Neural Network', icon: '🧠', complete: progress > 50 },
-                            { label: 'Analysis Complete', icon: '✨', complete: progress === 100 },
-                          ].map((step, index) => (
-                            <Slide
-                              key={index}
-                              direction="right"
-                              in={step.complete}
-                              timeout={300 + index * 100}
-                            >
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  mb: 2,
-                                  p: 1.5,
-                                  borderRadius: 2,
-                                  bgcolor: step.complete ? 'rgba(76, 175, 80, 0.1)' : 'transparent',
-                                  transition: 'all 0.3s ease',
-                                }}
+                        {/* Enhanced Scanning Stages */}
+                        <Box sx={{ width: '100%', px: 1 }}>
+                          {scanningStages.map((stage, index) => {
+                            const isComplete = scanningStage > index;
+                            const isActive = scanningStage === index;
+                            
+                            return (
+                              <Slide
+                                key={index}
+                                direction="right"
+                                in={scanningStage >= index}
+                                timeout={300 + index * 100}
                               >
                                 <Box
                                   sx={{
-                                    width: 32,
-                                    height: 32,
-                                    borderRadius: '50%',
-                                    bgcolor: step.complete ? '#4caf50' : '#e0e0e0',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center',
-                                    mr: 2,
+                                    mb: 1.5,
+                                    p: 1.5,
+                                    borderRadius: 3,
+                                    bgcolor: isComplete 
+                                      ? 'rgba(76, 175, 80, 0.15)' 
+                                      : isActive 
+                                      ? 'rgba(102, 126, 234, 0.15)'
+                                      : 'rgba(255, 255, 255, 0.5)',
                                     transition: 'all 0.3s ease',
-                                    boxShadow: step.complete ? '0 0 15px rgba(76, 175, 80, 0.5)' : 'none',
+                                    border: isActive 
+                                      ? '3px solid #667eea' 
+                                      : isComplete
+                                      ? '2px solid #4caf50'
+                                      : '2px solid transparent',
+                                    boxShadow: isActive 
+                                      ? '0 4px 15px rgba(102, 126, 234, 0.4)' 
+                                      : isComplete
+                                      ? '0 2px 8px rgba(76, 175, 80, 0.3)'
+                                      : 'none',
+                                    transform: isActive ? 'scale(1.02)' : 'scale(1)',
                                   }}
                                 >
-                                  <Typography sx={{ fontSize: '1rem' }}>
-                                    {step.complete ? '✓' : step.icon}
-                                  </Typography>
+                                  <Box
+                                    sx={{
+                                      width: 40,
+                                      height: 40,
+                                      borderRadius: '50%',
+                                      bgcolor: isComplete 
+                                        ? '#4caf50' 
+                                        : isActive 
+                                        ? '#667eea' 
+                                        : '#e0e0e0',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      mr: 2,
+                                      flexShrink: 0,
+                                      transition: 'all 0.3s ease',
+                                      boxShadow: isComplete 
+                                        ? '0 0 20px rgba(76, 175, 80, 0.6), inset 0 2px 4px rgba(255,255,255,0.3)' 
+                                        : isActive 
+                                        ? '0 0 20px rgba(102, 126, 234, 0.6), inset 0 2px 4px rgba(255,255,255,0.3)'
+                                        : '0 2px 4px rgba(0,0,0,0.1)',
+                                      animation: isActive ? 'stagePulse 1.5s ease-in-out infinite' : 'none',
+                                      border: isActive ? '3px solid white' : 'none',
+                                      '@keyframes stagePulse': {
+                                        '0%, 100%': { 
+                                          transform: 'scale(1)',
+                                          boxShadow: '0 0 20px rgba(102, 126, 234, 0.6)'
+                                        },
+                                        '50%': { 
+                                          transform: 'scale(1.15)',
+                                          boxShadow: '0 0 30px rgba(102, 126, 234, 0.9)'
+                                        },
+                                      },
+                                    }}
+                                  >
+                                    {isComplete ? (
+                                      <CheckCircle sx={{ fontSize: 24, color: 'white' }} />
+                                    ) : (
+                                      React.cloneElement(stage.icon, { 
+                                        sx: { 
+                                          fontSize: 22, 
+                                          color: isActive ? 'white' : '#999',
+                                          animation: isActive ? 'iconSpin 2s linear infinite' : 'none',
+                                          '@keyframes iconSpin': {
+                                            '0%': { transform: 'rotate(0deg)' },
+                                            '100%': { transform: 'rotate(360deg)' },
+                                          },
+                                        } 
+                                      })
+                                    )}
+                                  </Box>
+                                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography
+                                      variant="body2"
+                                      sx={{
+                                        color: isComplete || isActive ? 'text.primary' : 'text.secondary',
+                                        fontWeight: isComplete || isActive ? 700 : 500,
+                                        fontSize: { xs: '0.85rem', md: '0.9rem' },
+                                        lineHeight: 1.3,
+                                        animation: isActive ? 'textGlow 1.5s ease-in-out infinite' : 'none',
+                                        '@keyframes textGlow': {
+                                          '0%, 100%': { opacity: 0.9 },
+                                          '50%': { opacity: 1 },
+                                        },
+                                      }}
+                                    >
+                                      {stage.label}
+                                    </Typography>
+                                  </Box>
+                                  {/* Status indicator */}
+                                  {isActive && (
+                                    <Box
+                                      sx={{
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: '50%',
+                                        bgcolor: '#667eea',
+                                        flexShrink: 0,
+                                        ml: 1,
+                                        animation: 'dotPulse 1s ease-in-out infinite',
+                                        '@keyframes dotPulse': {
+                                          '0%, 100%': { opacity: 0.3, transform: 'scale(1)' },
+                                          '50%': { opacity: 1, transform: 'scale(1.5)' },
+                                        },
+                                      }}
+                                    />
+                                  )}
                                 </Box>
-                                <Typography
-                                  variant="body1"
-                                  sx={{
-                                    color: step.complete ? 'text.primary' : 'text.secondary',
-                                    fontWeight: step.complete ? 700 : 500,
-                                    fontSize: '0.95rem',
-                                  }}
-                                >
-                                  {step.label}
-                                </Typography>
-                              </Box>
-                            </Slide>
-                          ))}
+                              </Slide>
+                            );
+                          })}
                         </Box>
                       </Box>
                     </Fade>
                   ) : (
-                    <Box sx={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-                      <Memory sx={{ fontSize: 80, color: '#667eea', mb: 2, opacity: 0.5 }} />
-                      <Typography variant="h5" gutterBottom fontWeight={700} color="text.secondary">
-                        🧠 AI Ready
-                      </Typography>
-                      <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-                        Waiting for next scan...
-                      </Typography>
-                    </Box>
+                    <Fade in timeout={500}>
+                      <Box sx={{ 
+                        textAlign: 'center', 
+                        position: 'relative', 
+                        zIndex: 1,
+                        width: '100%',
+                        maxWidth: 400,
+                      }}>
+                        {/* Animated Idle State */}
+                        <Box
+                          sx={{
+                            position: 'relative',
+                            display: 'inline-block',
+                            mb: 3,
+                            animation: 'idleFloat 4s ease-in-out infinite',
+                            '@keyframes idleFloat': {
+                              '0%, 100%': { transform: 'translateY(0px) scale(1)' },
+                              '50%': { transform: 'translateY(-15px) scale(1.05)' },
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: 120,
+                              height: 120,
+                              borderRadius: '50%',
+                              background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2))',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              position: 'relative',
+                              boxShadow: '0 10px 40px rgba(102, 126, 234, 0.3)',
+                              '&::before': {
+                                content: '""',
+                                position: 'absolute',
+                                inset: -10,
+                                borderRadius: '50%',
+                                background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1))',
+                                animation: 'ringPulse 2s ease-in-out infinite',
+                              },
+                              '@keyframes ringPulse': {
+                                '0%, 100%': { transform: 'scale(1)', opacity: 0.5 },
+                                '50%': { transform: 'scale(1.2)', opacity: 0.2 },
+                              },
+                            }}
+                          >
+                            <Memory 
+                              sx={{ 
+                                fontSize: 60, 
+                                color: '#667eea',
+                                animation: 'iconRotate 8s linear infinite',
+                                filter: 'drop-shadow(0 4px 8px rgba(102, 126, 234, 0.4))',
+                                '@keyframes iconRotate': {
+                                  '0%': { transform: 'rotate(0deg)' },
+                                  '100%': { transform: 'rotate(360deg)' },
+                                },
+                              }} 
+                            />
+                          </Box>
+                        </Box>
+
+                        <Typography 
+                          variant="h4" 
+                          gutterBottom 
+                          fontWeight={700}
+                          sx={{
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                            mb: 2,
+                            animation: 'titlePulse 3s ease-in-out infinite',
+                            '@keyframes titlePulse': {
+                              '0%, 100%': { opacity: 0.7 },
+                              '50%': { opacity: 1 },
+                            },
+                          }}
+                        >
+                          🧠 AI Neural Network Ready
+                        </Typography>
+                        
+                        <Typography 
+                          variant="body1" 
+                          sx={{ 
+                            color: 'text.secondary',
+                            mb: 3,
+                            fontWeight: 500,
+                            px: 2,
+                          }}
+                        >
+                          Awaiting next brain scan for analysis...
+                        </Typography>
+
+                        {/* Status indicators */}
+                        <Box sx={{ 
+                          display: 'flex', 
+                          flexDirection: 'column',
+                          gap: 1.5,
+                          px: 2,
+                        }}>
+                          {[
+                            { icon: '🔵', label: 'Model Loaded', color: '#4caf50' },
+                            { icon: '⚡', label: 'GPU Accelerated', color: '#2196f3' },
+                            { icon: '🎯', label: '97% Accuracy', color: '#ff9800' },
+                          ].map((item, idx) => (
+                            <Box
+                              key={idx}
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 1,
+                                p: 1.5,
+                                borderRadius: 2,
+                                bgcolor: 'rgba(255, 255, 255, 0.6)',
+                                border: `2px solid ${item.color}`,
+                                animation: `statusPulse ${2 + idx * 0.5}s ease-in-out infinite`,
+                                animationDelay: `${idx * 0.3}s`,
+                                '@keyframes statusPulse': {
+                                  '0%, 100%': { 
+                                    boxShadow: `0 0 0px ${item.color}`,
+                                    transform: 'scale(1)',
+                                  },
+                                  '50%': { 
+                                    boxShadow: `0 0 20px ${item.color}`,
+                                    transform: 'scale(1.02)',
+                                  },
+                                },
+                              }}
+                            >
+                              <Typography sx={{ fontSize: '1.2rem' }}>{item.icon}</Typography>
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  fontWeight: 600,
+                                  color: item.color,
+                                }}
+                              >
+                                {item.label}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      </Box>
+                    </Fade>
                   )}
                 </Box>
               </Grid>
 
-              {/* Right: Prediction Results */}
+              {/* Right: Enhanced Prediction Results */}
               <Grid item xs={12} md={4}>
                 <Box
                   sx={{
-                    height: { xs: 'auto', md: 600 },
+                    minHeight: { xs: 500, md: 600 },
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    p: 4,
+                    p: { xs: 3, md: 4 },
                     background: prediction
-                      ? prediction.class_name === 'tumor'
-                        ? 'linear-gradient(135deg, rgba(244, 67, 54, 0.08) 0%, rgba(244, 67, 54, 0.02) 100%)'
-                        : 'linear-gradient(135deg, rgba(76, 175, 80, 0.08) 0%, rgba(76, 175, 80, 0.02) 100%)'
-                      : '#fafafa',
+                      ? prediction.prediction?.toLowerCase() === 'tumor'
+                        ? 'linear-gradient(135deg, rgba(244, 67, 54, 0.12) 0%, rgba(244, 67, 54, 0.05) 100%)'
+                        : 'linear-gradient(135deg, rgba(76, 175, 80, 0.12) 0%, rgba(76, 175, 80, 0.05) 100%)'
+                      : 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
                     transition: 'background 0.5s ease',
                     position: 'relative',
-                    overflow: 'hidden',
+                    overflow: 'auto',
                   }}
                 >
                   {prediction ? (
                     <Zoom in timeout={500}>
-                      <Box sx={{ textAlign: 'center', width: '100%', position: 'relative', zIndex: 1 }}>
-                        <Typography variant="h5" gutterBottom fontWeight={700} sx={{ mb: 3 }}>
-                          🎯 AI Prediction
-                        </Typography>
-                        <Paper
-                          elevation={8}
-                          sx={{
-                            p: 4,
-                            borderRadius: 4,
-                            background: prediction.class_name === 'tumor'
-                              ? 'linear-gradient(135deg, #f44336 0%, #e91e63 100%)'
-                              : 'linear-gradient(135deg, #4caf50 0%, #8bc34a 100%)',
-                            color: 'white',
-                            boxShadow: prediction.class_name === 'tumor'
-                              ? '0 10px 40px rgba(244, 67, 54, 0.4)'
-                              : '0 10px 40px rgba(76, 175, 80, 0.4)',
-                            transform: 'scale(1)',
-                            animation: 'resultPop 0.5s ease-out',
-                            '@keyframes resultPop': {
-                              '0%': { transform: 'scale(0.8)', opacity: 0 },
-                              '50%': { transform: 'scale(1.05)' },
-                              '100%': { transform: 'scale(1)', opacity: 1 },
+                      <Box sx={{ 
+                        textAlign: 'center', 
+                        width: '100%', 
+                        maxWidth: 400,
+                        position: 'relative', 
+                        zIndex: 1,
+                        py: { xs: 2, md: 0 },
+                      }}>
+                        <Typography 
+                          variant="h5" 
+                          gutterBottom 
+                          fontWeight={700} 
+                          sx={{ 
+                            mb: 2,
+                            fontSize: { xs: '1.3rem', md: '1.5rem' },
+                            animation: 'fadeIn 0.5s ease-in',
+                            '@keyframes fadeIn': {
+                              '0%': { opacity: 0 },
+                              '100%': { opacity: 1 },
                             },
                           }}
                         >
-                          <Typography variant="h2" fontWeight={900} gutterBottom>
-                            {prediction.class_name === 'tumor' ? '⚠️' : '✅'}
+                          🎯 AI Prediction Result
+                        </Typography>
+                        
+                        {/* Accuracy Status Badge */}
+                        {currentImage?.label && (
+                          <Chip
+                            icon={prediction.isCorrect ? <CheckCircle /> : <Cancel />}
+                            label={prediction.isCorrect ? '✓ Correct Prediction' : '✗ Incorrect Prediction'}
+                            sx={{
+                              mb: 2,
+                              bgcolor: prediction.isCorrect ? '#4caf50' : '#f44336',
+                              color: 'white',
+                              fontWeight: 700,
+                              fontSize: { xs: '0.85rem', md: '0.95rem' },
+                              py: { xs: 2, md: 2.5 },
+                              px: { xs: 1.5, md: 2 },
+                              boxShadow: prediction.isCorrect 
+                                ? '0 4px 12px rgba(76, 175, 80, 0.4)' 
+                                : '0 4px 12px rgba(244, 67, 54, 0.4)',
+                              animation: 'badgePop 0.5s ease-out',
+                              '@keyframes badgePop': {
+                                '0%': { transform: 'scale(0.5)', opacity: 0 },
+                                '100%': { transform: 'scale(1)', opacity: 1 },
+                              },
+                            }}
+                          />
+                        )}
+                        
+                        <Paper
+                          elevation={12}
+                          sx={{
+                            p: { xs: 3, md: 4 },
+                            borderRadius: 4,
+                            background: prediction.prediction?.toLowerCase() === 'tumor'
+                              ? 'linear-gradient(135deg, #f44336 0%, #e91e63 100%)'
+                              : 'linear-gradient(135deg, #4caf50 0%, #8bc34a 100%)',
+                            color: 'white',
+                            boxShadow: prediction.prediction?.toLowerCase() === 'tumor'
+                              ? '0 10px 40px rgba(244, 67, 54, 0.5)'
+                              : '0 10px 40px rgba(76, 175, 80, 0.5)',
+                            transform: 'scale(1)',
+                            animation: 'resultPop 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+                            '@keyframes resultPop': {
+                              '0%': { transform: 'scale(0.5) rotate(-5deg)', opacity: 0 },
+                              '50%': { transform: 'scale(1.1) rotate(2deg)' },
+                              '100%': { transform: 'scale(1) rotate(0deg)', opacity: 1 },
+                            },
+                          }}
+                        >
+                          <Typography 
+                            variant="h1" 
+                            fontWeight={900} 
+                            gutterBottom
+                            sx={{
+                              fontSize: { xs: '3rem', md: '4rem' },
+                              animation: 'iconBounce 0.8s ease-out',
+                              '@keyframes iconBounce': {
+                                '0%': { transform: 'scale(0) rotate(180deg)' },
+                                '50%': { transform: 'scale(1.2) rotate(-10deg)' },
+                                '100%': { transform: 'scale(1) rotate(0deg)' },
+                              },
+                            }}
+                          >
+                            {prediction.prediction?.toLowerCase() === 'tumor' ? '⚠️' : '✅'}
                           </Typography>
-                          <Typography variant="h3" fontWeight={800} gutterBottom sx={{ textShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
-                            {prediction.class_name === 'tumor' ? 'TUMOR' : 'HEALTHY'}
+                          <Typography 
+                            variant="h3" 
+                            fontWeight={800} 
+                            gutterBottom 
+                            sx={{ 
+                              textShadow: '0 2px 10px rgba(0,0,0,0.3)',
+                              fontSize: { xs: '1.8rem', md: '2.5rem' },
+                            }}
+                          >
+                            {prediction.prediction?.toUpperCase() || 'UNKNOWN'}
                           </Typography>
-                          <Typography variant="h6" sx={{ opacity: 0.95, fontWeight: 600 }}>
+                          <Typography 
+                            variant="h6" 
+                            sx={{ 
+                              opacity: 0.95, 
+                              fontWeight: 600,
+                              fontSize: { xs: '1rem', md: '1.25rem' },
+                            }}
+                          >
                             Detected
                           </Typography>
                         </Paper>
 
-                        <Box sx={{ mt: 4, width: '100%', maxWidth: 320 }}>
-                          <Typography variant="h6" color="text.secondary" gutterBottom fontWeight={600}>
+                        <Box sx={{ mt: 3, width: '100%', px: { xs: 1, md: 0 } }}>
+                          <Typography 
+                            variant="h6" 
+                            color="text.secondary" 
+                            gutterBottom 
+                            fontWeight={600}
+                            sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}
+                          >
                             Confidence Level
                           </Typography>
                           <Box sx={{ position: 'relative', mb: 2 }}>
@@ -677,12 +1227,12 @@ const AutoDemo = () => {
                                 bgcolor: '#e0e0e0',
                                 boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)',
                                 '& .MuiLinearProgress-bar': {
-                                  bgcolor: prediction.class_name === 'tumor' ? '#f44336' : '#4caf50',
+                                  bgcolor: prediction.prediction?.toLowerCase() === 'tumor' ? '#f44336' : '#4caf50',
                                   borderRadius: 14,
-                                  background: prediction.class_name === 'tumor'
+                                  background: prediction.prediction?.toLowerCase() === 'tumor'
                                     ? 'linear-gradient(90deg, #f44336 0%, #e91e63 100%)'
                                     : 'linear-gradient(90deg, #4caf50 0%, #8bc34a 100%)',
-                                  boxShadow: prediction.class_name === 'tumor'
+                                  boxShadow: prediction.prediction?.toLowerCase() === 'tumor'
                                     ? '0 0 15px rgba(244, 67, 54, 0.5)'
                                     : '0 0 15px rgba(76, 175, 80, 0.5)',
                                 },
@@ -704,16 +1254,20 @@ const AutoDemo = () => {
                             </Typography>
                           </Box>
                           <Typography
-                            variant="h3"
+                            variant="h2"
                             align="center"
                             fontWeight={900}
-                            color="primary"
                             sx={{
-                              textShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                              animation: 'numberPulse 2s ease-in-out infinite',
-                              '@keyframes numberPulse': {
+                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              backgroundClip: 'text',
+                              textShadow: 'none',
+                              fontSize: { xs: '2.5rem', md: '3rem' },
+                              animation: 'confidencePulse 2s ease-in-out infinite',
+                              '@keyframes confidencePulse': {
                                 '0%, 100%': { transform: 'scale(1)' },
-                                '50%': { transform: 'scale(1.05)' },
+                                '50%': { transform: 'scale(1.08)' },
                               },
                             }}
                           >
@@ -723,42 +1277,118 @@ const AutoDemo = () => {
 
                         {currentImage?.label && (
                           <Chip
-                            label={`True Label: ${currentImage.label}`}
+                            label={`Expected: ${currentImage.label.toUpperCase()}`}
                             sx={{
-                              mt: 3,
+                              mt: 2,
                               bgcolor: '#e3f2fd',
                               color: '#1976d2',
                               fontWeight: 700,
-                              fontSize: '0.95rem',
-                              py: 2.5,
-                              px: 2,
+                              fontSize: { xs: '0.85rem', md: '0.95rem' },
+                              py: { xs: 2, md: 2.5 },
+                              px: { xs: 1.5, md: 2 },
                               boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+                              animation: 'labelSlide 0.5s ease-out',
+                              '@keyframes labelSlide': {
+                                '0%': { transform: 'translateY(20px)', opacity: 0 },
+                                '100%': { transform: 'translateY(0)', opacity: 1 },
+                              },
                             }}
                           />
                         )}
                       </Box>
                     </Zoom>
                   ) : (
-                    <Box sx={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-                      <Typography variant="h5" gutterBottom fontWeight={700} color="text.secondary">
-                        🎯 AI Prediction
-                      </Typography>
-                      <Typography variant="body1" color="text.secondary" sx={{ mt: 2, fontSize: '1.1rem' }}>
-                        Waiting for analysis...
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        Results will appear here
-                      </Typography>
-                      <Box sx={{ mt: 4, opacity: 0.5 }}>
-                        <Memory sx={{ fontSize: 60, color: '#667eea' }} />
+                    <Fade in timeout={500}>
+                      <Box sx={{ 
+                        textAlign: 'center', 
+                        position: 'relative', 
+                        zIndex: 1,
+                        width: '100%',
+                        maxWidth: 400,
+                        py: { xs: 4, md: 0 },
+                      }}>
+                        <Box
+                          sx={{
+                            mb: 3,
+                            animation: 'idleBounce 3s ease-in-out infinite',
+                            '@keyframes idleBounce': {
+                              '0%, 100%': { transform: 'translateY(0px)' },
+                              '50%': { transform: 'translateY(-15px)' },
+                            },
+                          }}
+                        >
+                          <Typography 
+                            sx={{ 
+                              fontSize: { xs: '4rem', md: '5rem' },
+                              filter: 'drop-shadow(0 4px 8px rgba(102, 126, 234, 0.3))',
+                            }}
+                          >
+                            🎯
+                          </Typography>
+                        </Box>
+                        
+                        <Typography 
+                          variant="h5" 
+                          gutterBottom 
+                          fontWeight={700}
+                          sx={{
+                            fontSize: { xs: '1.3rem', md: '1.5rem' },
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                            mb: 2,
+                          }}
+                        >
+                          AI Prediction Ready
+                        </Typography>
+                        
+                        <Typography 
+                          variant="body1" 
+                          color="text.secondary" 
+                          sx={{ 
+                            mt: 2,
+                            fontSize: { xs: '0.95rem', md: '1.1rem' },
+                            fontWeight: 500,
+                            px: 2,
+                            lineHeight: 1.6,
+                          }}
+                        >
+                          Waiting for brain scan analysis...
+                        </Typography>
+                        
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary" 
+                          sx={{ 
+                            mt: 2,
+                            fontSize: { xs: '0.85rem', md: '0.95rem' },
+                            px: 3,
+                            opacity: 0.7,
+                          }}
+                        >
+                          Results will appear here with confidence scores
+                        </Typography>
+                        
+                        <Box sx={{ 
+                          mt: 4, 
+                          opacity: 0.4,
+                          animation: 'iconFloat 4s ease-in-out infinite',
+                          '@keyframes iconFloat': {
+                            '0%, 100%': { transform: 'translateY(0px) rotate(0deg)' },
+                            '50%': { transform: 'translateY(-10px) rotate(5deg)' },
+                          },
+                        }}>
+                          <Memory sx={{ fontSize: { xs: 50, md: 60 }, color: '#667eea' }} />
+                        </Box>
                       </Box>
-                    </Box>
+                    </Fade>
                   )}
                 </Box>
               </Grid>
             </Grid>
 
-            {/* Enhanced Controls */}
+            {/* Enhanced Controls with Animations */}
             <Box
               sx={{
                 display: 'flex',
@@ -766,20 +1396,54 @@ const AutoDemo = () => {
                 alignItems: 'center',
                 gap: 3,
                 p: 3,
-                background: 'linear-gradient(90deg, #f5f5f5 0%, #fafafa 100%)',
-                borderTop: '2px solid #e0e0e0',
+                background: 'linear-gradient(90deg, #f5f5f5 0%, #fafafa 50%, #f5f5f5 100%)',
+                borderTop: '3px solid transparent',
+                borderImage: 'linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%)',
+                borderImageSlice: 1,
+                position: 'relative',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '3px',
+                  background: 'linear-gradient(90deg, transparent, #667eea, transparent)',
+                  animation: 'borderGlow 3s linear infinite',
+                },
+                '@keyframes borderGlow': {
+                  '0%': { transform: 'translateX(-100%)' },
+                  '100%': { transform: 'translateX(100%)' },
+                },
               }}
             >
               <Chip
-                icon={<Memory />}
+                icon={<Memory sx={{ animation: 'iconPulse 2s ease-in-out infinite', '@keyframes iconPulse': { '0%, 100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.15)' } } }} />}
                 label={`${allImages.length} Total Scans`}
                 sx={{
                   bgcolor: 'white',
                   fontWeight: 600,
                   boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  border: '2px solid #e0e0e0',
+                  animation: 'chipBounce 2s ease-in-out infinite',
+                  '@keyframes chipBounce': {
+                    '0%, 100%': { transform: 'translateY(0px)' },
+                    '50%': { transform: 'translateY(-3px)' },
+                  },
                 }}
               />
-              <Typography variant="h6" color="text.secondary" fontWeight={300}>
+              <Typography 
+                variant="h6" 
+                color="text.secondary" 
+                fontWeight={300}
+                sx={{
+                  animation: 'blink 2s ease-in-out infinite',
+                  '@keyframes blink': {
+                    '0%, 100%': { opacity: 1 },
+                    '50%': { opacity: 0.3 },
+                  },
+                }}
+              >
                 •
               </Typography>
               <Chip
@@ -789,6 +1453,18 @@ const AutoDemo = () => {
                   fontWeight: 700,
                   fontSize: '0.95rem',
                   boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
+                  border: '2px solid #667eea',
+                  animation: 'currentPulse 1.5s ease-in-out infinite',
+                  '@keyframes currentPulse': {
+                    '0%, 100%': { 
+                      transform: 'scale(1)',
+                      boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
+                    },
+                    '50%': { 
+                      transform: 'scale(1.05)',
+                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.6)'
+                    },
+                  },
                 }}
               />
 
@@ -800,10 +1476,23 @@ const AutoDemo = () => {
                   sx={{
                     bgcolor: 'white',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    border: '2px solid #667eea',
+                    animation: isPlaying ? 'playingPulse 1s ease-in-out infinite' : 'none',
+                    '@keyframes playingPulse': {
+                      '0%, 100%': { 
+                        transform: 'scale(1)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                      },
+                      '50%': { 
+                        transform: 'scale(1.1)',
+                        boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)'
+                      },
+                    },
                     '&:hover': {
                       bgcolor: '#667eea',
                       color: 'white',
-                      transform: 'scale(1.1)',
+                      transform: 'scale(1.15) rotate(5deg)',
+                      boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
                     },
                     transition: 'all 0.3s ease',
                   }}
@@ -817,10 +1506,12 @@ const AutoDemo = () => {
                   sx={{
                     bgcolor: 'white',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    border: '2px solid #667eea',
                     '&:hover': {
                       bgcolor: '#667eea',
                       color: 'white',
-                      transform: 'scale(1.1)',
+                      transform: 'scale(1.15) translateX(5px)',
+                      boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
                     },
                     transition: 'all 0.3s ease',
                   }}
@@ -834,10 +1525,12 @@ const AutoDemo = () => {
                   sx={{
                     bgcolor: 'white',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    border: '2px solid #667eea',
                     '&:hover': {
                       bgcolor: '#667eea',
                       color: 'white',
-                      transform: 'scale(1.1)',
+                      transform: 'scale(1.15) rotate(-180deg)',
+                      boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
                     },
                     transition: 'all 0.3s ease',
                   }}

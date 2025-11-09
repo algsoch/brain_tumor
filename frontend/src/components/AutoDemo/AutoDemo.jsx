@@ -22,7 +22,7 @@ import {
   Speed,
   AccountTree,
 } from '@mui/icons-material'
-import { galleryAPI, predictionAPI } from '../../services/api'
+import { galleryAPI, predictionAPI, precomputedAPI } from '../../services/api'
 
 const AutoDemo = () => {
   const [isPlaying, setIsPlaying] = useState(true)
@@ -33,6 +33,7 @@ const AutoDemo = () => {
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [scanPosition, setScanPosition] = useState(0)
+  const [precomputedPredictions, setPrecomputedPredictions] = useState({}) // Store predictions by filename
 
   useEffect(() => {
     loadImages()
@@ -50,15 +51,53 @@ const AutoDemo = () => {
 
   const loadImages = async () => {
     try {
-      const response = await galleryAPI.getImages()
-      if (response.success && response.data?.images) {
-        setAllImages(response.data.images)
-        if (response.data.images.length > 0) {
-          setCurrentImage(response.data.images[0])
+      // Load precomputed predictions first (fast!)
+      console.log('Loading precomputed predictions from CSV...')
+      const predResponse = await precomputedAPI.getPredictions()
+      
+      if (predResponse.success) {
+        const allPredictions = predResponse.data.predictions || []
+        
+        // Store predictions in a map for quick lookup
+        const predMap = {}
+        allPredictions.forEach(pred => {
+          predMap[pred.filename] = pred
+        })
+        setPrecomputedPredictions(predMap)
+        
+        console.log(`✅ Loaded ${allPredictions.length} precomputed predictions`)
+        
+        // Use the predictions as images (they already have all needed data)
+        const imagesWithPredictions = allPredictions.slice(0, 20).map(pred => ({
+          filename: pred.filename,
+          path: pred.filename,
+          label: pred.label,
+          url: `/api/gallery/image/${pred.filename}`,
+          // Attach prediction data
+          prediction: pred.prediction,
+          confidence: pred.confidence,
+          isCorrect: pred.isCorrect
+        }))
+        
+        setAllImages(imagesWithPredictions)
+        if (imagesWithPredictions.length > 0) {
+          setCurrentImage(imagesWithPredictions[0])
         }
       }
     } catch (error) {
       console.error('Failed to load images:', error)
+      // Fallback to gallery API if precomputed fails
+      try {
+        const response = await galleryAPI.getImages({ page: 1, page_size: 20 })
+        if (response.success && response.data?.images) {
+          setAllImages(response.data.images)
+          if (response.data.images.length > 0) {
+            setCurrentImage(response.data.images[0])
+          }
+        }
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError)
+      }
     }
   }
 
@@ -79,19 +118,31 @@ const AutoDemo = () => {
       setScanPosition(i)
     }
 
-    // Make actual prediction
+    // Use precomputed prediction (no API call needed!)
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Wait for animation
+      await new Promise(resolve => setTimeout(resolve, 500)) // Brief pause for effect
       
-      console.log('Making prediction for:', image.path)
-      const response = await predictionAPI.predictByPath(image.path)
-      console.log('Prediction response:', response)
-      
-      if (response.success) {
-        setPrediction(response.data)
+      // Check if we have precomputed prediction for this image
+      if (image.prediction && image.confidence !== undefined) {
+        // Image already has prediction data attached
+        console.log('Using attached prediction for:', image.filename)
+        setPrediction({
+          prediction: image.prediction,
+          confidence: image.confidence,
+          class_name: image.prediction
+        })
+      } else if (precomputedPredictions[image.filename]) {
+        // Look up from precomputed map
+        const pred = precomputedPredictions[image.filename]
+        console.log('Using precomputed prediction for:', image.filename)
+        setPrediction({
+          prediction: pred.prediction,
+          confidence: pred.confidence,
+          class_name: pred.prediction
+        })
       } else {
-        console.error('Prediction failed:', response)
-        // Set a fallback prediction based on filename
+        // Fallback: estimate from filename
+        console.log('Using filename-based prediction for:', image.filename)
         setPrediction({
           prediction: image.label || (image.filename.includes('cancer_') ? 'tumor' : 'healthy'),
           confidence: 95.0,

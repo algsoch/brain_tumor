@@ -15,14 +15,6 @@ import {
   useTheme,
   alpha,
 } from '@mui/material'
-import {
-  BrainIcon,
-  AnalyticsIcon,
-  SpeedIcon,
-  SecurityIcon,
-  CloudIcon,
-  CodeIcon,
-} from '@mui/icons-material'
 import CodeBlock from '../components/CodeBlock/CodeBlock'
 
 const AboutPage = () => {

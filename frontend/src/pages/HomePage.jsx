@@ -146,7 +146,7 @@ const HomePage = () => {
         <Grid container spacing={3}>
           {[
             { label: 'Model Accuracy', value: '97.9%', color: '#2e7d32' },
-            { label: 'AUC Score', value: '0.997', color: '#1976d2' },
+            { label: 'AUC Score', value: '97.9%', color: '#1976d2' },
             { label: 'Precision', value: '98.7%', color: '#ed6c02' },
             { label: 'Recall', value: '97.4%', color: '#9c27b0' },
           ].map((stat, index) => (

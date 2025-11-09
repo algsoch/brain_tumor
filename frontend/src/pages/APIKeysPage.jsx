@@ -848,6 +848,22 @@ module.exports = { predictBrainTumor, predictMultipleScans };`
             <Chip icon={<CheckCircleIcon />} label="97% Accuracy" color="primary" />
             <Chip icon={<CodeIcon />} label="RESTful API" color="secondary" />
           </Box>
+          <Box sx={{ mt: 3 }}>
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<DescriptionIcon />}
+              onClick={() => window.open('https://documenter.getpostman.com/view/your-api-docs', '_blank')}
+              sx={{
+                background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
+                px: 4,
+                py: 1.5,
+                fontSize: '1.1rem',
+              }}
+            >
+              📚 View Full API Documentation
+            </Button>
+          </Box>
         </Box>
       </Fade>
 
@@ -1942,6 +1958,10 @@ module.exports = { predictBrainTumor, predictMultipleScans };`
                 variant="outlined" 
                 startIcon={<PlayArrowIcon />}
                 size="large"
+                onClick={() => {
+                  // Scroll to Live API Testing section (around line 854)
+                  window.scrollTo({ top: 400, behavior: 'smooth' })
+                }}
               >
                 Try Live Testing Above
               </Button>
@@ -1949,6 +1969,10 @@ module.exports = { predictBrainTumor, predictMultipleScans };`
                 variant="outlined" 
                 startIcon={<DescriptionIcon />}
                 size="large"
+                onClick={() => {
+                  // Scroll to top (API Documentation header)
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
               >
                 API Documentation
               </Button>

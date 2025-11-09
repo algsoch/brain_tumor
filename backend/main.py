@@ -99,6 +99,15 @@ app.include_router(gallery_router)
 app.include_router(api_keys_router)
 app.include_router(precomputed_router)
 
+# Mount model directory for direct file downloads
+from pathlib import Path
+model_dir = Path(__file__).parent / "model"
+if model_dir.exists():
+    app.mount("/model", StaticFiles(directory=str(model_dir)), name="model")
+    logger.info(f"Mounted model directory: {model_dir}")
+else:
+    logger.warning(f"Model directory not found: {model_dir}")
+
 
 # Root endpoint
 @app.get("/")

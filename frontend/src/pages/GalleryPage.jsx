@@ -118,8 +118,8 @@ const GalleryPage = () => {
       setLoading(true)
       setError(null)
       
-      // For correct/incorrect filters, we need ALL images to filter properly
-      const needsAllImages = filter === 'correct' || filter === 'incorrect'
+      // For correct/incorrect/tumor/healthy filters, we need ALL images to filter properly
+      const needsAllImages = filter === 'correct' || filter === 'incorrect' || filter === 'tumor' || filter === 'healthy'
       
       let fetchedImages = []
       let totalImagesInDB = 0
@@ -660,6 +660,13 @@ const GalleryPage = () => {
                             icon={image.label === 'tumor' || image.label.includes('cancer') ? <LocalHospitalIcon /> : <CheckCircleIcon />}
                             sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
                           />
+                          <Chip
+                            label={pred ? '✓ Tested' : '✗ Not Tested'}
+                            color={pred ? 'info' : 'default'}
+                            size="small"
+                            variant={pred ? 'filled' : 'outlined'}
+                            sx={{ fontWeight: 600, fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+                          />
                         </Box>
                         {pred && (
                           <Box sx={{ mt: 1 }}>
@@ -770,6 +777,12 @@ const GalleryPage = () => {
                               size="small"
                             />
                           )}
+                          <Chip
+                            label={pred ? '✓ Tested' : '✗ Not Tested'}
+                            color={pred ? 'info' : 'default'}
+                            size="small"
+                            variant={pred ? 'filled' : 'outlined'}
+                          />
                         </Box>
                         {pred && (
                           <Box>

@@ -192,3 +192,31 @@ async def get_performance_summary():
     except Exception as e:
         logger.error(f"Error getting performance summary: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/download/notebook")
+async def download_notebook():
+    """
+    Download Jupyter notebook file
+    
+    Returns:
+        Jupyter notebook file download
+    """
+    try:
+        # Look for notebook in colab_code directory
+        notebook_path = settings.base_dir / "colab_code" / "brain_tumor.ipynb"
+        
+        if not notebook_path.exists():
+            raise HTTPException(status_code=404, detail="Notebook file not found")
+        
+        return FileResponse(
+            path=str(notebook_path),
+            filename="brain_tumor.ipynb",
+            media_type="application/x-ipynb+json"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading notebook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

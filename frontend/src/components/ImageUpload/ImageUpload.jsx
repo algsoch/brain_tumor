@@ -66,12 +66,17 @@ const ImageUpload = () => {
 
   useEffect(() => {
     if (loading) {
+      // Calculate total duration of all scanning stages
+      const totalDuration = scanningStages.reduce((sum, stage) => sum + stage.duration, 0)
+      const incrementInterval = 50 // Update every 50ms for smooth animation
+      const incrementPerStep = 100 / (totalDuration / incrementInterval) // Calculate increment to reach 100% exactly at total duration
+      
       const progressTimer = setInterval(() => {
         setProcessingProgress((prev) => {
           if (prev >= 100) return 100
-          return prev + 2
+          return Math.min(prev + incrementPerStep, 100) // Ensure we don't exceed 100%
         })
-      }, 100)
+      }, incrementInterval)
       return () => clearInterval(progressTimer)
     } else {
       setProcessingProgress(0)

@@ -3,7 +3,8 @@
  */
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Remove trailing slash from API URL to prevent double slashes
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
 
 // Create axios instance with default config
 const api = axios.create({

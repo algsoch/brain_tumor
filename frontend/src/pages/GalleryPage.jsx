@@ -315,7 +315,9 @@ const GalleryPage = () => {
     setPrediction(null)
     
     try {
-      const imageResponse = await api.get(`/api/gallery/image/${image.path}`, {
+      // Use encodeURIComponent to handle special characters in filenames
+      const encodedPath = encodeURIComponent(image.path)
+      const imageResponse = await api.get(`/api/gallery/image/${encodedPath}`, {
         responseType: 'blob'
       })
       
@@ -623,6 +625,10 @@ const GalleryPage = () => {
                           height={viewMode === 'grid' ? 220 : 280}
                           image={galleryAPI.getImageUrl(image.path)}
                           alt={image.filename}
+                          onError={(e) => {
+                            console.error('Image load error:', image.filename, galleryAPI.getImageUrl(image.path))
+                            e.target.onerror = null
+                          }}
                           sx={{
                             objectFit: 'contain',
                             bgcolor: '#000',
@@ -751,6 +757,10 @@ const GalleryPage = () => {
                         <img
                           src={galleryAPI.getImageUrl(image.path)}
                           alt={image.filename}
+                          onError={(e) => {
+                            console.error('List image load error:', image.filename)
+                            e.target.onerror = null
+                          }}
                           style={{
                             width: '100%',
                             height: '100%',

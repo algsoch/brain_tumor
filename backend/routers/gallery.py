@@ -5,6 +5,7 @@ import logging
 import os
 from typing import Optional
 from pathlib import Path
+from urllib.parse import unquote
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse, FileResponse
 
@@ -43,6 +44,9 @@ async def debug_paths():
 async def options_image(image_path: str, request: Request):
     """Handle CORS preflight for image requests"""
     origin = request.headers.get("origin", "*")
+    # URL-decode for logging
+    decoded_path = unquote(image_path)
+    logger.info(f"OPTIONS preflight for image: {decoded_path}")
     return Response(
         status_code=200,
         headers={
@@ -160,15 +164,19 @@ async def get_image(image_path: str, request: Request):
     Serve a specific test image
     
     Args:
-        image_path: Relative path to the image
+        image_path: Relative path to the image (URL-encoded)
         request: FastAPI request object
         
     Returns:
         Image file with CORS headers
     """
     try:
+        # URL-decode the path to handle special characters like parentheses
+        decoded_path = unquote(image_path)
+        logger.info(f"Serving image: original='{image_path}', decoded='{decoded_path}'")
+        
         test_images_path = settings.get_absolute_path(settings.test_images_path)
-        full_path = test_images_path / image_path
+        full_path = test_images_path / decoded_path
         
         # Security check: ensure path is within test images directory
         if not str(full_path.resolve()).startswith(str(test_images_path.resolve())):
@@ -176,7 +184,7 @@ async def get_image(image_path: str, request: Request):
         
         if not full_path.exists() or not full_path.is_file():
             logger.error(f"Image not found: {full_path}")
-            raise HTTPException(status_code=404, detail=f"Image not found: {image_path}")
+            raise HTTPException(status_code=404, detail=f"Image not found: {decoded_path}")
         
         # Get origin from request headers
         origin = request.headers.get("origin", "")

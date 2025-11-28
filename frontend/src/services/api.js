@@ -161,10 +161,12 @@ export const galleryAPI = {
   /**
    * Get image URL
    * @param {string} imagePath - Relative image path
-   * @returns {string} Image URL
+   * @returns {string} Image URL - properly encoded for filenames with special characters
    */
   getImageUrl: (imagePath) => {
-    return `${API_BASE_URL}/api/gallery/image/${imagePath}`;
+    // URL-encode the image path to handle special characters like parentheses
+    const encodedPath = encodeURIComponent(imagePath);
+    return `${API_BASE_URL}/api/gallery/image/${encodedPath}`;
   },
 
   /**

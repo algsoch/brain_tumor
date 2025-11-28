@@ -5,13 +5,53 @@ import logging
 import os
 from typing import Optional
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse, FileResponse
 
 from config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/gallery", tags=["gallery"])
+
+
+# Debug endpoint to check image paths
+@router.get("/debug")
+async def debug_paths():
+    """Debug endpoint to check image paths on server"""
+    test_images_path = settings.get_absolute_path(settings.test_images_path)
+    
+    # Check if directory exists and list files
+    exists = test_images_path.exists()
+    is_dir = test_images_path.is_dir() if exists else False
+    
+    files = []
+    if exists and is_dir:
+        files = [f.name for f in list(test_images_path.iterdir())[:10]]  # First 10 files
+    
+    return {
+        "test_images_path_config": settings.test_images_path,
+        "test_images_path_resolved": str(test_images_path),
+        "exists": exists,
+        "is_directory": is_dir,
+        "sample_files": files,
+        "base_dir": str(Path(__file__).parent),
+    }
+
+
+# Handle OPTIONS preflight requests for images
+@router.options("/image/{image_path:path}")
+async def options_image(image_path: str, request: Request):
+    """Handle CORS preflight for image requests"""
+    origin = request.headers.get("origin", "*")
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": origin if origin else "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
 
 
 @router.get("/images")
@@ -135,22 +175,42 @@ async def get_image(image_path: str, request: Request):
             raise HTTPException(status_code=403, detail="Access denied")
         
         if not full_path.exists() or not full_path.is_file():
-            raise HTTPException(status_code=404, detail="Image not found")
+            logger.error(f"Image not found: {full_path}")
+            raise HTTPException(status_code=404, detail=f"Image not found: {image_path}")
         
         # Get origin from request headers
-        origin = request.headers.get("origin", "*")
+        origin = request.headers.get("origin", "")
+        
+        # Determine the correct media type based on file extension
+        ext = full_path.suffix.lower()
+        media_types = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg', 
+            '.png': 'image/png',
+            '.bmp': 'image/bmp',
+            '.gif': 'image/gif'
+        }
+        media_type = media_types.get(ext, 'image/jpeg')
         
         # Create FileResponse with CORS headers
         response = FileResponse(
             path=str(full_path),
-            media_type="image/jpeg"
+            media_type=media_type
         )
         
         # Add CORS headers manually (FileResponse doesn't inherit from middleware)
-        response.headers["Access-Control-Allow-Origin"] = origin if origin in settings.allowed_origins else settings.allowed_origins[0]
+        # Allow the requesting origin if it's in our allowed list, otherwise use wildcard for images
+        allowed_origin = "*"
+        if origin:
+            for allowed in settings.allowed_origins:
+                if origin == allowed or (allowed.endswith('.onrender.com') and origin.endswith('.onrender.com')):
+                    allowed_origin = origin
+                    break
+        
+        response.headers["Access-Control-Allow-Origin"] = allowed_origin
         response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "*"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Cache-Control"] = "public, max-age=86400"  # Cache images for 1 day
         
         return response
         

@@ -35,6 +35,7 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+._*
 
 # Uploads and temporary files
 backend/uploads/

@@ -2,8 +2,8 @@ services:
   # Backend API Service (FREE TIER)
   - type: web
     name: brain-tumor-api
-    env: python
-    plan: free  # FREE tier - $0/month (spins down after 15 min inactivity)
+    runtime: python
+    plan: free
     region: oregon
     branch: main
     buildCommand: "cd backend && pip install --upgrade pip && pip install -r requirements.txt"
@@ -20,7 +20,7 @@ services:
       - key: PORT
         value: "10000"
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: "https://brain-tumor-mcug.onrender.com,http://localhost:3000,http://localhost:5173"
       - key: MODEL_PATH
         value: ../model/final_brain_tumor_model_97.keras
       - key: MODEL_INPUT_SIZE
@@ -42,5 +42,16 @@ services:
       - key: PYTHON_VERSION
         value: "3.11.0"
     healthCheckPath: /health
+
+# Frontend Static Site
+staticSites:
+  - type: web
+    name: brain-tumor
+    buildCommand: "cd frontend && npm install && npm run build"
+    publishPath: frontend/dist
+    branch: main
+    envVars:
+      - key: VITE_API_URL
+        value: "https://brain-tumor-api-utwn.onrender.com"
 
 

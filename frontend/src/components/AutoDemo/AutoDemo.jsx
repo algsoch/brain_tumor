@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Box,
   Container,
@@ -13,6 +13,8 @@ import {
   Zoom,
   Slide,
   Alert,
+  Button,
+  Tooltip,
 } from '@mui/material'
 import {
   PlayArrow,
@@ -27,8 +29,11 @@ import {
   Science as ScienceIcon,
   Radar as RadarIcon,
   Analytics as AnalyticsIcon,
+  CloudDone as CloudDoneIcon,
+  CloudOff as CloudOffIcon,
+  Sync as SyncIcon,
 } from '@mui/icons-material'
-import { galleryAPI, predictionAPI } from '../../services/api'
+import { galleryAPI, predictionAPI, generalAPI } from '../../services/api'
 
 const AutoDemo = () => {
   const [isPlaying, setIsPlaying] = useState(true)
@@ -41,6 +46,9 @@ const AutoDemo = () => {
   const [scanPosition, setScanPosition] = useState(0)
   const [scanningStage, setScanningStage] = useState(0)
   const [error, setError] = useState(null)
+  const [connectionStatus, setConnectionStatus] = useState('checking')
+  const [retryCount, setRetryCount] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
 
   // AI Processing stages with durations
   const scanningStages = [
@@ -53,8 +61,34 @@ const AutoDemo = () => {
   ]
 
   useEffect(() => {
-    loadImages()
+    checkConnectionAndLoadImages()
   }, [])
+
+  // Check connection and load images
+  const checkConnectionAndLoadImages = async () => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      // First check if backend is connected
+      setConnectionStatus('checking')
+      const healthResponse = await generalAPI.healthCheck()
+      
+      if (healthResponse.status === 'healthy') {
+        setConnectionStatus('connected')
+        await loadImages()
+      } else {
+        setConnectionStatus('disconnected')
+        setError('Backend service is not healthy')
+      }
+    } catch (err) {
+      console.error('Connection check failed:', err)
+      setConnectionStatus('disconnected')
+      setError('Cannot connect to backend. Please check if the server is running.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (isPlaying && !isProcessing && allImages.length > 0) {
@@ -102,14 +136,32 @@ const AutoDemo = () => {
     try {
       const response = await galleryAPI.getImages({ page: 1, page_size: 20 })
       if (response.success && response.data?.images) {
-        setAllImages(response.data.images)
-        if (response.data.images.length > 0) {
-          setCurrentImage(response.data.images[0])
+        // Filter out any potential problematic files
+        const validImages = response.data.images.filter(img => 
+          !img.filename.startsWith('._') && 
+          (img.filename.endsWith('.jpg') || img.filename.endsWith('.jpeg') || img.filename.endsWith('.png'))
+        )
+        setAllImages(validImages)
+        if (validImages.length > 0) {
+          setCurrentImage(validImages[0])
+          setRetryCount(0)
+        } else {
+          setError('No valid images found in gallery')
         }
+      } else {
+        throw new Error('Failed to get images from gallery')
       }
     } catch (error) {
       console.error('Failed to load images:', error)
-      setError('Failed to load demo images')
+      setError('Failed to load demo images. Click retry to try again.')
+      
+      // Auto-retry up to 3 times
+      if (retryCount < 3) {
+        setRetryCount(prev => prev + 1)
+        setTimeout(() => {
+          checkConnectionAndLoadImages()
+        }, 2000 * (retryCount + 1))
+      }
     }
   }
 
@@ -325,10 +377,90 @@ const AutoDemo = () => {
               Watch our AI model analyze brain scans in real-time with advanced deep learning
             </Typography>
             
-            {/* Error Alert */}
+            {/* Connection Status Banner */}
+            <Fade in timeout={500}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                <Chip
+                  icon={
+                    connectionStatus === 'connected' ? (
+                      <CloudDoneIcon sx={{ color: '#fff !important' }} />
+                    ) : connectionStatus === 'checking' ? (
+                      <SyncIcon sx={{ 
+                        color: '#fff !important',
+                        animation: 'spin 1s linear infinite',
+                        '@keyframes spin': {
+                          '0%': { transform: 'rotate(0deg)' },
+                          '100%': { transform: 'rotate(360deg)' },
+                        },
+                      }} />
+                    ) : (
+                      <CloudOffIcon sx={{ color: '#fff !important' }} />
+                    )
+                  }
+                  label={
+                    connectionStatus === 'connected' 
+                      ? '🟢 Backend Connected - AI Ready' 
+                      : connectionStatus === 'checking'
+                      ? '🟡 Connecting to Backend...'
+                      : '🔴 Backend Disconnected'
+                  }
+                  sx={{
+                    backgroundColor: 
+                      connectionStatus === 'connected' 
+                        ? 'rgba(76, 175, 80, 0.9)' 
+                        : connectionStatus === 'checking'
+                        ? 'rgba(255, 193, 7, 0.9)'
+                        : 'rgba(244, 67, 54, 0.9)',
+                    color: 'white',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    py: 2.5,
+                    px: 2,
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    animation: connectionStatus === 'connected' 
+                      ? 'connectedPulse 3s ease-in-out infinite'
+                      : connectionStatus === 'checking'
+                      ? 'checkingPulse 1s ease-in-out infinite'
+                      : 'disconnectedPulse 1.5s ease-in-out infinite',
+                    '@keyframes connectedPulse': {
+                      '0%, 100%': { boxShadow: '0 4px 15px rgba(76, 175, 80, 0.3)' },
+                      '50%': { boxShadow: '0 4px 25px rgba(76, 175, 80, 0.6)' },
+                    },
+                    '@keyframes checkingPulse': {
+                      '0%, 100%': { opacity: 0.7 },
+                      '50%': { opacity: 1 },
+                    },
+                    '@keyframes disconnectedPulse': {
+                      '0%, 100%': { boxShadow: '0 4px 15px rgba(244, 67, 54, 0.3)' },
+                      '50%': { boxShadow: '0 4px 25px rgba(244, 67, 54, 0.6)' },
+                    },
+                    cursor: 'pointer',
+                    transition: 'transform 0.3s ease',
+                    '&:hover': {
+                      transform: 'scale(1.05)',
+                    },
+                  }}
+                  onClick={() => checkConnectionAndLoadImages()}
+                />
+              </Box>
+            </Fade>
+            
+            {/* Error Alert with Retry */}
             {error && (
               <Alert 
                 severity="error" 
+                action={
+                  <Button 
+                    color="inherit" 
+                    size="small"
+                    onClick={() => checkConnectionAndLoadImages()}
+                    startIcon={<Refresh />}
+                  >
+                    Retry
+                  </Button>
+                }
                 sx={{ 
                   mb: 3,
                   maxWidth: 800,
@@ -342,8 +474,19 @@ const AutoDemo = () => {
                 }}
                 onClose={() => setError(null)}
               >
-                <strong>Prediction Error:</strong> {error}
+                <strong>Error:</strong> {error}
+                {retryCount > 0 && ` (Retry attempt ${retryCount}/3)`}
               </Alert>
+            )}
+            
+            {/* Loading State */}
+            {isLoading && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
+                <CircularProgress size={60} sx={{ color: 'white', mb: 2 }} />
+                <Typography variant="h6" sx={{ color: 'white' }}>
+                  Connecting to AI Backend...
+                </Typography>
+              </Box>
             )}
             
             {/* Model Info Banner with Enhanced Animations */}

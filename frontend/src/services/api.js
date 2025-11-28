@@ -166,7 +166,8 @@ export const galleryAPI = {
   getImageUrl: (imagePath) => {
     // URL-encode the image path to handle special characters like parentheses
     const encodedPath = encodeURIComponent(imagePath);
-    return `${API_BASE_URL}/api/gallery/image/${encodedPath}`;
+    // Add cache buster to ensure fresh images load
+    return `${API_BASE_URL}/api/gallery/image/${encodedPath}?v=2`;
   },
 
   /**

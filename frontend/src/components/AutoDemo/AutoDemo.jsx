@@ -134,7 +134,9 @@ const AutoDemo = () => {
       
       // NOW fetch the actual image blob from gallery
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-      const imageUrl = `${API_BASE_URL}/api/gallery/image/${image.path}`
+      // URL-encode the path to handle special characters like parentheses
+      const encodedPath = encodeURIComponent(image.path)
+      const imageUrl = `${API_BASE_URL}/api/gallery/image/${encodedPath}`
       
       console.log('🔄 Fetching image:', imageUrl)
       const imageResponse = await fetch(imageUrl)
@@ -477,8 +479,12 @@ const AutoDemo = () => {
                         }}
                       >
                         <img
-                          src={`http://localhost:8000${currentImage.url}`}
+                          src={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/gallery/image/${encodeURIComponent(currentImage.path)}?v=2`}
                           alt={currentImage.filename}
+                          onError={(e) => {
+                            console.error('AutoDemo image failed to load:', currentImage.path);
+                            e.target.style.display = 'none';
+                          }}
                           style={{
                             maxWidth: '90%',
                             maxHeight: '90%',

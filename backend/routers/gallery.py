@@ -99,6 +99,9 @@ async def get_gallery_images(
             all_images.extend(test_images_path.glob(f"**/*{ext}"))
             all_images.extend(test_images_path.glob(f"**/*{ext.upper()}"))
         
+        # Filter out macOS metadata files (starting with ._)
+        all_images = [img for img in all_images if not img.name.startswith('._')]
+        
         # Apply search filter
         if search:
             all_images = [img for img in all_images if search.lower() in img.name.lower()]
@@ -253,6 +256,9 @@ async def get_gallery_stats():
         for ext in image_extensions:
             all_images.extend(test_images_path.glob(f"**/*{ext}"))
             all_images.extend(test_images_path.glob(f"**/*{ext.upper()}"))
+        
+        # Filter out macOS metadata files (starting with ._)
+        all_images = [img for img in all_images if not img.name.startswith('._')]
         
         # Group by label (extracted from filename)
         label_counts = {}

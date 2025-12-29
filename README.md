@@ -11,9 +11,9 @@ A production-ready, cloud-deployed web application for brain tumor detection usi
 
 ## 🌐 Live Demo
 
-- **Frontend**: [https://your-app.onrender.com](https://your-app.onrender.com) (Update after deployment)
-- **API Docs**: [https://your-api.onrender.com/api/docs](https://your-api.onrender.com/api/docs)
-- **Health Check**: [https://your-api.onrender.com/health](https://your-api.onrender.com/health)
+- **Frontend**: https://brain-tumor-mcug.onrender.com/
+- **API Docs**: https://brain-tumor-api-utwn.onrender.com
+- **Health Check**: https://brain-tumor-api-utwn.onrender.com/health
 
 ## ✨ Features
 
@@ -283,10 +283,9 @@ docker-compose down
 ## 📚 API Documentation
 
 ### 📖 Interactive Docs
-
 Once deployed or running locally:
-- **Swagger UI**: `https://your-api.onrender.com/api/docs` (or `http://localhost:8000/api/docs`)
-- **ReDoc**: `https://your-api.onrender.com/api/redoc`
+- **Swagger UI**: `https://brain-tumor-api-utwn.onrender.com/api/docs` (or `http://localhost:8000/api/docs`)
+- **ReDoc**: `https://brain-tumor-api-utwn.onrender.com/api/redoc`
 
 ### 🔑 Main Endpoints
 
@@ -540,11 +539,6 @@ Contributions are welcome! Please follow these steps:
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 👥 Authors
-
-- Your Name - Initial work
-
 ## 🙏 Acknowledgments
 
 - Dataset providers
@@ -557,19 +551,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 For issues, questions, or suggestions:
 - Open an issue on GitHub
 - Email: your.email@example.com
-
-## 🗺️ Roadmap
-
-- [ ] Add Grad-CAM visualization for explainability
-- [ ] Implement user authentication system
-- [ ] Add model versioning and A/B testing
-- [ ] Support for multi-class classification (glioma, meningioma, pituitary)
-- [ ] Mobile app version (React Native)
-- [ ] Real-time model retraining interface
-- [ ] Integration with PACS/DICOM systems
-- [ ] Export predictions as PDF reports
-- [ ] Multi-language support
-- [ ] Dark mode theme
 
 ---
 
@@ -597,7 +578,7 @@ Contributions are welcome! Please:
 
 ## 📞 Support & Contact
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/brain_tumor/issues)
+- **Issues**: [GitHub Issues](https://github.com/algsoch/brain_tumor/issues)
 - **Documentation**: [Full Docs](DEPLOYMENT.md)
 - **Quick Start**: [Quick Start Guide](QUICKSTART.md)
 
@@ -634,7 +615,7 @@ For any clinical application, this system would require:
 
 **Made with ❤️ using React, FastAPI, and TensorFlow**
 
-[![GitHub Stars](https://img.shields.io/github/stars/yourusername/brain_tumor?style=social)](https://github.com/yourusername/brain_tumor)
-[![GitHub Forks](https://img.shields.io/github/forks/yourusername/brain_tumor?style=social)](https://github.com/yourusername/brain_tumor/fork)
+[![GitHub Stars](https://img.shields.io/github/stars/algsoch/brain_tumor?style=social)](https://github.com/algsoch/brain_tumor)
+[![GitHub Forks](https://img.shields.io/github/forks/algsoch/brain_tumor?style=social)](https://github.com/algsoch/brain_tumor/fork)
 
 </div>

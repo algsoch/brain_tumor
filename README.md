@@ -613,8 +613,6 @@ For any clinical application, this system would require:
 
 <div align="center">
 
-**Made with ❤️ using React, FastAPI, and TensorFlow**
-
 [![GitHub Stars](https://img.shields.io/github/stars/algsoch/brain_tumor?style=social)](https://github.com/algsoch/brain_tumor)
 [![GitHub Forks](https://img.shields.io/github/forks/algsoch/brain_tumor?style=social)](https://github.com/algsoch/brain_tumor/fork)
 
